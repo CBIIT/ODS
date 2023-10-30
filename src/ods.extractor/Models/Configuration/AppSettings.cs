@@ -13,5 +13,7 @@ namespace Theradex.ODS.Extractor.Models.Configuration
         public string TraceId { get; set; }
 
         public string ArchiveBucket { get; set; }
+
+        public string S3Enabled { get; set; }
     }
 }

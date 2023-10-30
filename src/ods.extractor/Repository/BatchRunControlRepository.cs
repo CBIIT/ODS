@@ -24,6 +24,7 @@ using Theradex.ODS.Models;
 using Theradex.ODS.Extractor.Helpers.Extensions;
 using Theradex.ODS.Extractor.Services;
 using Theradex.ODS.Extractor.Models.Configuration;
+using Amazon.SimpleSystemsManagement.Model;
 
 namespace Theradex.ODS.Extractor
 {
@@ -58,13 +59,13 @@ namespace Theradex.ODS.Extractor
                         table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, 
                         rave_username, rave_password, is_run_complete_flag, job_starttime, job_endtime, 
                         url_used_to_get_interval, created, updated, error_message, no_of_records_retrieved, 
-                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload)
+                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload, extracted_file_name)
                         VALUES (
                         @table_name, @api_startdate, @api_enddate, @slot, @no_of_records, @url_to_pull_data, 
                         @rave_username, @rave_password, @is_run_complete_flag, @job_starttime, @job_endtime, 
                         @url_used_to_get_interval, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, @error_message, 
                         @no_of_records_retrieved, @rave_data_url, @http_status_code, @success, 
-                        @no_of_retry, @next_retry_time, @payload)";
+                        @no_of_retry, @next_retry_time, @payload, @extracted_file_name)";
 
                         command.Parameters.AddWithValue("@table_name", entity.TableName);
                         command.Parameters.AddWithValue("@api_startdate", DBUtils.ToDB(entity.ApiStartDate));
@@ -86,7 +87,7 @@ namespace Theradex.ODS.Extractor
                         command.Parameters.AddWithValue("@no_of_retry", DBUtils.ToDB(entity.NoOfRetry));
                         command.Parameters.AddWithValue("@next_retry_time", (object)entity.NextRetryTime ?? DBNull.Value);
                         command.Parameters.AddWithValue("@payload", DBUtils.ToDB(entity.Payload));
-
+                        command.Parameters.AddWithValue("@extracted_file_name", DBUtils.ToDB(entity.Payload));
                         command.ExecuteNonQuery();
                     }
                     catch (Exception ex)
@@ -110,13 +111,13 @@ namespace Theradex.ODS.Extractor
                         table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, 
                         rave_username, rave_password, is_run_complete_flag, job_starttime, job_endtime, 
                         url_used_to_get_interval, created, updated, error_message, no_of_records_retrieved, 
-                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload)
+                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload, extracted_file_name)
                         VALUES (
                         @table_name, @api_startdate, @api_enddate, @slot, @no_of_records, @url_to_pull_data, 
                         @rave_username, @rave_password, @is_run_complete_flag, @job_starttime, @job_endtime, 
                         @url_used_to_get_interval, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, @error_message, 
                         @no_of_records_retrieved, @rave_data_url, @http_status_code, @success, 
-                        @no_of_retry, @next_retry_time, @payload)";
+                        @no_of_retry, @next_retry_time, @payload, @extracted_file_name)";
 
                         command.Parameters.AddWithValue("@table_name", entity.TableName);
                         command.Parameters.AddWithValue("@api_startdate", DBUtils.ToDB(entity.ApiStartDate));
@@ -138,6 +139,7 @@ namespace Theradex.ODS.Extractor
                         command.Parameters.AddWithValue("@no_of_retry", DBUtils.ToDB(entity.NoOfRetry));
                         command.Parameters.AddWithValue("@next_retry_time", (object)entity.NextRetryTime ?? DBNull.Value);
                         command.Parameters.AddWithValue("@payload", DBUtils.ToDB(entity.Payload));
+                        command.Parameters.AddWithValue("@extracted_file_name", DBUtils.ToDB(entity.Payload));
 
                         await command.ExecuteNonQueryAsync();
                     }
@@ -169,13 +171,13 @@ namespace Theradex.ODS.Extractor
                         table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, 
                         rave_username, rave_password, is_run_complete_flag, job_starttime, job_endtime, 
                         url_used_to_get_interval, created, updated, error_message, no_of_records_retrieved, 
-                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload)
+                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload, extracted_file_name)
                         VALUES (
                         @table_name, @api_startdate, @api_enddate, @slot, @no_of_records, @url_to_pull_data, 
                         @rave_username, @rave_password, @is_run_complete_flag, @job_starttime, @job_endtime, 
                         @url_used_to_get_interval, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, @error_message, 
                         @no_of_records_retrieved, @rave_data_url, @http_status_code, @success, 
-                        @no_of_retry, @next_retry_time, @payload)";
+                        @no_of_retry, @next_retry_time, @payload, @extracted_file_name)";
 
                                 command.Parameters.AddWithValue("@table_name", entity.TableName);
                                 command.Parameters.AddWithValue("@api_startdate", DBUtils.ToDB(entity.ApiStartDate));
@@ -197,6 +199,7 @@ namespace Theradex.ODS.Extractor
                                 command.Parameters.AddWithValue("@no_of_retry", DBUtils.ToDB(entity.NoOfRetry));
                                 command.Parameters.AddWithValue("@next_retry_time", (object)entity.NextRetryTime ?? DBNull.Value);
                                 command.Parameters.AddWithValue("@payload", DBUtils.ToDB(entity.Payload));
+                                command.Parameters.AddWithValue("@extracted_file_name", DBUtils.ToDB(entity.Payload));
 
                                 await command.ExecuteNonQueryAsync();
                             }
@@ -232,13 +235,13 @@ namespace Theradex.ODS.Extractor
                         table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, 
                         rave_username, rave_password, is_run_complete_flag, job_starttime, job_endtime, 
                         url_used_to_get_interval, created, updated, error_message, no_of_records_retrieved, 
-                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload)
+                        rave_data_url, http_status_code, success, no_of_retry, next_retry_time, payload, extracted_file_name)
                         VALUES (
                         @table_name, @api_startdate, @api_enddate, @slot, @no_of_records, @url_to_pull_data, 
                         @rave_username, @rave_password, @is_run_complete_flag, @job_starttime, @job_endtime, 
                         @url_used_to_get_interval, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, @error_message, 
                         @no_of_records_retrieved, @rave_data_url, @http_status_code, @success, 
-                        @no_of_retry, @next_retry_time, @payload)";
+                        @no_of_retry, @next_retry_time, @payload, @extracted_file_name)";
 
                                 command.Parameters.AddWithValue("@table_name", entity.TableName);
                                 command.Parameters.AddWithValue("@api_startdate", DBUtils.ToDB(entity.ApiStartDate));
@@ -260,6 +263,7 @@ namespace Theradex.ODS.Extractor
                                 command.Parameters.AddWithValue("@no_of_retry", DBUtils.ToDB(entity.NoOfRetry));
                                 command.Parameters.AddWithValue("@next_retry_time", (object)entity.NextRetryTime ?? DBNull.Value);
                                 command.Parameters.AddWithValue("@payload", DBUtils.ToDB(entity.Payload));
+                                command.Parameters.AddWithValue("@extracted_file_name", DBUtils.ToDB(entity.Payload));
 
                                 command.ExecuteNonQuery();
                             }
@@ -319,7 +323,8 @@ namespace Theradex.ODS.Extractor
                                 JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
                                 UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
                                 Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14),
+                                ExtractedFileName = reader.IsDBNull(15) ? string.Empty : reader.GetString(15)
                             };
                         }
                     }
@@ -358,7 +363,8 @@ namespace Theradex.ODS.Extractor
                                 JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
                                 UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
                                 Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14),
+                                ExtractedFileName = reader.IsDBNull(15) ? string.Empty : reader.GetString(15)
                             };
                         }
                     }
@@ -396,7 +402,9 @@ namespace Theradex.ODS.Extractor
                             JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
                             UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
                             Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                            Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                            Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14),
+                            ExtractedFileName = reader.IsDBNull(15) ? string.Empty : reader.GetString(15)
+
                         };
                         batchRunControls.Add(batchRunControl);
                     }
@@ -433,7 +441,8 @@ namespace Theradex.ODS.Extractor
                             JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
                             UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
                             Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                            Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                            Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14),
+                            ExtractedFileName = reader.IsDBNull(15) ? string.Empty : reader.GetString(15)
                         };
                         batchRunControls.Add(batchRunControl);
                     }
@@ -448,13 +457,13 @@ namespace Theradex.ODS.Extractor
             using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
             {
                 connection.Open();
-                using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_starttime = @JobStartTime, updated = @Updated WHERE id = @Id", connection))
+                using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_starttime = @JobStartTime, updated = @Updated, extracted_file_name = @ExtractedFileName WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", true);
                     cmd.Parameters.AddWithValue("@JobStartTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Id", batchRunControl.Id);
-
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
                     cmd.ExecuteNonQuery();
                 }
             }
@@ -464,13 +473,13 @@ namespace Theradex.ODS.Extractor
             using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
             {
                 connection.Open();
-                using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_starttime = @JobStartTime, updated = @Updated WHERE id = @Id", connection))
+                using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_starttime = @JobStartTime, updated = @Updated, extracted_file_name = @ExtractedFileName   WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", true);
                     cmd.Parameters.AddWithValue("@JobStartTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Id", batchRunControl.Id);
-
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
                     await cmd.ExecuteNonQueryAsync();
                 }
             }
@@ -483,7 +492,7 @@ namespace Theradex.ODS.Extractor
                 using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_endtime = @JobEndTime, " +
                                                                                             "updated = @Updated , payload = @Payload  , http_status_code = @HttpStatusCode , " +
                                                                                             "rave_data_url = @RaveDataUrl , no_of_records_retrieved = @NoofRecordsRetrieved , " +
-                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage " +
+                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage , extracted_file_name = @ExtractedFileName " +
                                                                                             "WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", false);
@@ -492,11 +501,12 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
                     cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
-                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
                     cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
                     cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
                     cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     cmd.Parameters.AddWithValue("@Id", batchRunControl.Id);
 
@@ -512,7 +522,7 @@ namespace Theradex.ODS.Extractor
                 using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_endtime = @JobEndTime, " +
                                                                                             "updated = @Updated , payload = @Payload  , http_status_code = @HttpStatusCode , " +
                                                                                             "rave_data_url = @RaveDataUrl , no_of_records_retrieved = @NoofRecordsRetrieved , " +
-                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage " +
+                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage , extracted_file_name = @ExtractedFileName " +
                                                                                             "WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", false);
@@ -521,11 +531,12 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
                     cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
-                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
                     cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
                     cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
                     cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", DBNull.Value);
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     cmd.Parameters.AddWithValue("@Id", batchRunControl.Id);
 
@@ -542,7 +553,7 @@ namespace Theradex.ODS.Extractor
                 using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_endtime = @JobEndTime, " +
                                                                                             "updated = @Updated , payload = @Payload  , http_status_code = @HttpStatusCode , " +
                                                                                             "rave_data_url = @RaveDataUrl , no_of_records_retrieved = @NoofRecordsRetrieved , " +
-                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage " +
+                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage , extracted_file_name = @ExtractedFileName " +
                                                                                             "WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", false);
@@ -555,7 +566,8 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
                     cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
                     cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", error);
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(error));
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     cmd.ExecuteNonQuery();
                 }
@@ -570,7 +582,7 @@ namespace Theradex.ODS.Extractor
                 using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET is_run_complete_flag = @IsRunCompleteFlag, job_endtime = @JobEndTime, " +
                                                                                             "updated = @Updated , payload = @Payload  , http_status_code = @HttpStatusCode , " +
                                                                                             "rave_data_url = @RaveDataUrl , no_of_records_retrieved = @NoofRecordsRetrieved , " +
-                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage " +
+                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage , extracted_file_name = @ExtractedFileName " +
                                                                                             "WHERE id = @Id", connection))
                 {
                     cmd.Parameters.AddWithValue("@IsRunCompleteFlag", false);
@@ -583,7 +595,8 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
                     cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
                     cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", error);
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(error));
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     await cmd.ExecuteNonQueryAsync();
                 }

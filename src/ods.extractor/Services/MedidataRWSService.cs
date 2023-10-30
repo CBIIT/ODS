@@ -28,6 +28,12 @@ namespace Theradex.ODS.Extractor.Services
         {
             var path = string.Format($"{tableName}/{fileName}.xml");
 
+            if (string.IsNullOrEmpty(_appSettings.ArchiveBucket))
+            {
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed as S3 Bucket was not configured; Path: {path}");
+                return false;
+            }
+
             var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, path, response);
 
             if (!isSuccess)
@@ -93,13 +99,16 @@ namespace Theradex.ODS.Extractor.Services
 
             try
             {
-                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) });
+                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) , MaxTimeout= _rwsSettings.TimeoutInSecs.ConvertSecsToMs()});
 
 
                 var request = new RestRequest(_rwsSettings.RWSServer + resource)
                 {
-                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs()
+                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs(),
+
                 };
+
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Rave Timeout (milliseconds): {request.Timeout}; {resource};");
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Getting data from Rave; {resource};");
 

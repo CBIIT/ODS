@@ -9,6 +9,14 @@ using Theradex.ODS.Extractor.Interfaces;
 using Theradex.ODS.Extractor.Models;
 using Theradex.ODS.Extractor.Models.Configuration;
 using Theradex.ODS.Models;
+using Polly;
+using Polly.CircuitBreaker;
+using Polly.Retry;
+using System;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
 
 namespace Theradex.ODS.Extractor.Processors
 {
@@ -91,11 +99,13 @@ namespace Theradex.ODS.Extractor.Processors
             }
             catch (Exception ex)
             {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; Error - {ex}");
                 return false;
             }
         }
         private async Task<bool> Extract(BatchRunControl batchRunControl, ODSData odsData)
         {
+
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
@@ -105,6 +115,22 @@ namespace Theradex.ODS.Extractor.Processors
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + batchRunControl.ApiEndDate);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId};   Current Enddate : " + batchRunControl.ApiEndDate);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
+
+            // Create a policy for retry with exponential back-off
+            var retryPolicy = Policy
+                .Handle<HttpRequestException>() // Specify the exception to handle
+                .WaitAndRetryAsync(
+                    5, // Retry 5 times
+                    retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)) // Exponential back-off
+                );
+
+            // Create a policy for the circuit breaker with a threshold of 3 failures
+            var circuitBreakerPolicy = Policy
+                .Handle<HttpRequestException>()
+                .CircuitBreakerAsync(
+                    exceptionsAllowedBeforeBreaking: 3,
+                    durationOfBreak: TimeSpan.FromMinutes(1) // Break for 1 minute on failure
+                );
 
             var HasActiveJobs = await _odsRepository.HasActiveJobsAsync(batchRunControl.TableName.ToUpper());
 
@@ -150,6 +176,18 @@ namespace Theradex.ODS.Extractor.Processors
             DateTime dtStartDate = DateTime.Parse(batchRunControl.ApiStartDate);
             DateTime dtEndDate = DateTime.Parse(batchRunControl.ApiEndDate);
 
+            TimeSpan dateDifference = dtEndDate - dtStartDate;
+
+            // Check if the date difference is more than 365 days
+            if (dateDifference.TotalDays > 365)
+            {
+                // Log an info message indicating the date difference is being limited
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Date difference is more than 365 days. Limiting to 365 days.");
+
+                // Limit the date difference to 365 days
+                dtEndDate = dtStartDate.AddDays(365);
+            }
+
             string formattedStartDate = dtStartDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
             string formattedEndDate = dtEndDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
 
@@ -161,62 +199,74 @@ namespace Theradex.ODS.Extractor.Processors
             string error_responseDataFileNameWithExtensionRAW = responseDataFileName + "ERROR_RAW.json";
             string error_responseDataFileNameWithExtension = responseDataFileName + "ERROR.json";
 
+
             try
             {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Medidata Rave to fetch All data for [Table:{odsData.TableName}] " +
+                // Wrap your code in a policy using ExecuteAsync
+                await retryPolicy.ExecuteAsync(async () =>
+                {
+                    // Inside this block, Polly will handle retries and exponential back-off
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Medidata Rave to fetch All data for [Table:{odsData.TableName}] " +
                                             $"[StartDate:{batchRunControl.ApiStartDate}]" + $"[EndDate:{batchRunControl.ApiEndDate}] " + $"[URL:{odsData.URL}] ");
 
-                string url = $"{odsData.URL}?PageSize=200000000&StartDate={formattedStartDate}&EndDate={formattedEndDate}&TableName={odsData.TableName}";
+
+                    string url = $"{odsData.URL}?PageSize=200000000&StartDate={formattedStartDate}&EndDate={formattedEndDate}&TableName={odsData.TableName}";
 
 
-                var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
+                    // Call the Medidata Rave service
+                    var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
 
-                var json = response != null ? response.Content : "{\"Payload\":[{\"Data\":[]}]}";
+                    // Check for a failed response
+                    if (response == null || response.StatusCode != HttpStatusCode.OK)
+                    {
+                        throw new HttpRequestException($"HTTP request failed. [Error Exception : {response.ErrorException.ToString()}] [Content: {response.Content}] ");
+                    }
 
-                if (response != null && response.StatusCode != System.Net.HttpStatusCode.OK)
-                {
-                    batchRunControl.Success = "FAILED";
-                    batchRunControl.NoOfRetry = 0;
-                    json = "{\"Payload\":[{\"Data\":[]}]}";
-                }
-                else
-                {
+                    var json = response.Content;
+
                     batchRunControl.Success = "SUCCESS";
-                }
+                    batchRunControl.HttpStatusCode = response.StatusCode.ToString();
+                    batchRunControl.RaveDataUrl = url;
+                    batchRunControl.ExtractedFileName = responseDataFileNameWithExtension;
 
-                batchRunControl.HttpStatusCode = response.StatusCode.ToString();
-                batchRunControl.RaveDataUrl = url;
-                // Deserialize JSON into a C# object
-                Payloads payload = JsonConvert.DeserializeObject<Payloads>(json);
+                    // Deserialize JSON into a C# object
+                    Payloads payload = JsonConvert.DeserializeObject<Payloads>(json);
 
-                // Remove the "Data" property from the object
-                foreach (var item in payload.Payload)
-                {
-                    item.Data = null;
-                }
+                    // Remove the "Data" property from the object
+                    foreach (var item in payload.Payload)
+                    {
+                        item.Data = null;
+                    }
 
-                // Serialize the modified object back to JSON
-                batchRunControl.Payload = JsonConvert.SerializeObject(payload);
-                batchRunControl.Payloads = payload;
+                    // Serialize the modified object back to JSON
+                    batchRunControl.Payload = JsonConvert.SerializeObject(payload);
+                    batchRunControl.Payloads = payload;
 
-                //File.WriteAllText(responseDataFileNameWithExtensionRAW, data);
-                await File.WriteAllTextAsync(responseDataFileNameWithExtension, json);
+                    // File.WriteAllText(responseDataFileNameWithExtensionRAW, data);
+                    await File.WriteAllTextAsync(responseDataFileNameWithExtension, json);
 
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
+                                            $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
 
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
-                                                $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
-
-                await _odsRepository.CompletedAsync(batchRunControl);
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; COMPLETED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
-                                                $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
-
+                    await _odsRepository.CompletedAsync(batchRunControl);
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; COMPLETED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
+                                            $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
+                });
             }
-            catch (Exception ex)
+            catch (HttpRequestException ex)
             {
+                // Handle the exception
                 File.WriteAllText(error_responseDataFileNameWithExtensionRAW, ex.Message);
                 File.WriteAllText(error_responseDataFileNameWithExtension, ex.Message);
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occured. {ex}");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occurred. {ex}");
+                batchRunControl.ExtractedFileName = error_responseDataFileNameWithExtension;
+                batchRunControl.ErrorMessage= ex.StackTrace;
                 await _odsRepository.CompletedErrorAsync(batchRunControl, ex.StackTrace);
+            }
+            catch (BrokenCircuitException ex)
+            {
+                // The circuit breaker is open, handle accordingly
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; Circuit breaker is open. {ex}");
             }
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
