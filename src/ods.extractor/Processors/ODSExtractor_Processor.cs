@@ -217,9 +217,9 @@ namespace Theradex.ODS.Extractor.Processors
                     var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
 
                     // Check for a failed response
-                    if (response == null || response.StatusCode != HttpStatusCode.OK)
+                    if (response != null || response.StatusCode != HttpStatusCode.OK)
                     {
-                        throw new HttpRequestException($"HTTP request failed. [Error Exception : {response.ErrorException.ToString()}] [Content: {response.Content}] ");
+                        throw new HttpRequestException($"HTTP request failed. [Error Exception : {response.ErrorException}] [Content: {response.Content}] ");
                     }
 
                     var json = response.Content;
