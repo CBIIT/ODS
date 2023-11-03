@@ -16,6 +16,7 @@ namespace Theradex.ODS.Models
         public string FileNameWithFullPath { get; set; }
         public string FilePath { get; set; }
         public string URL { get; set; }
+        public int RecordCount { get; set; }
 
     }
 }

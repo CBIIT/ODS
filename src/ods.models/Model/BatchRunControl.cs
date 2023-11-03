@@ -50,6 +50,9 @@ namespace Theradex.ODS.Models
         public string Payload { get; set; }
         public Payloads Payloads { get; set; }
         public string ExtractedFileName { get; set; }
+        public int TotalPages { get; set; }
+        public long PageSize { get; set; }
+        public int PageNumber { get; set; }
 
         public BatchRunControl()
         {

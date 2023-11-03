@@ -252,7 +252,7 @@ namespace Theradex.ODS.Extractor
                                 command.Parameters.AddWithValue("@rave_username", DBUtils.ToDB(entity.RaveUsername));
                                 command.Parameters.AddWithValue("@rave_password", DBUtils.ToDB(entity.RavePassword));
                                 command.Parameters.AddWithValue("@is_run_complete_flag", DBUtils.ToDB(entity.IsRunCompleteFlag));
-                                command.Parameters.AddWithValue("@job_starttime",DBNull.Value);
+                                command.Parameters.AddWithValue("@job_starttime", DBNull.Value);
                                 command.Parameters.AddWithValue("@job_endtime", DBNull.Value);
                                 command.Parameters.AddWithValue("@url_used_to_get_interval", DBUtils.ToDB(entity.UrlUsedToGetInterval));
                                 command.Parameters.AddWithValue("@error_message", DBUtils.ToDB(entity.ErrorMessage));
@@ -283,6 +283,36 @@ namespace Theradex.ODS.Extractor
         {
             throw new NotImplementedException();
         }
+
+        public async Task UpdateAsync(BatchRunControl batchRunControl)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
+            {
+                connection.Open();
+                using (NpgsqlCommand cmd = new NpgsqlCommand("UPDATE batch_run_control SET " +
+                                                                                            "updated = @Updated , payload = @Payload  , http_status_code = @HttpStatusCode , " +
+                                                                                            "rave_data_url = @RaveDataUrl , no_of_records_retrieved = @NoofRecordsRetrieved , " +
+                                                                                            "success = @Success , no_of_retry = @NoofRetry, next_retry_time = @NextRetryTime , error_message=@ErrorMessage , extracted_file_name = @ExtractedFileName " +
+                                                                                            "WHERE id = @Id", connection))
+                {
+                    cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
+                    cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
+                    cmd.Parameters.AddWithValue("@HttpStatusCode", DBUtils.ToDB(batchRunControl.HttpStatusCode));
+                    cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
+                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
+                    cmd.Parameters.AddWithValue("@Success", DBUtils.ToDB(batchRunControl.Success));
+                    cmd.Parameters.AddWithValue("@NoofRetry", DBUtils.ToDB(batchRunControl.NoOfRetry));
+                    cmd.Parameters.AddWithValue("@NextRetryTime", DBUtils.ToDB(batchRunControl.NextRetryTime));
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
+                    cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
+
+                    cmd.Parameters.AddWithValue("@Id", batchRunControl.Id);
+
+                    await cmd.ExecuteNonQueryAsync();
+                }
+            }
+        }
+
 
         public void Delete(BatchRunControl entity)
         {
@@ -499,12 +529,12 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@JobEndTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
-                    cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
+                    cmd.Parameters.AddWithValue("@HttpStatusCode", DBUtils.ToDB(batchRunControl.HttpStatusCode));
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
                     cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
-                    cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
-                    cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
-                    cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Success", DBUtils.ToDB(batchRunControl.Success));
+                    cmd.Parameters.AddWithValue("@NoofRetry", DBUtils.ToDB(batchRunControl.NoOfRetry));
+                    cmd.Parameters.AddWithValue("@NextRetryTime", DBUtils.ToDB(batchRunControl.NextRetryTime));
                     cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
                     cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
@@ -529,12 +559,12 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@JobEndTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
-                    cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
+                    cmd.Parameters.AddWithValue("@HttpStatusCode", DBUtils.ToDB(batchRunControl.HttpStatusCode));
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
                     cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
-                    cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
-                    cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
-                    cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
+                    cmd.Parameters.AddWithValue("@Success", DBUtils.ToDB(batchRunControl.Success));
+                    cmd.Parameters.AddWithValue("@NoofRetry", DBUtils.ToDB(batchRunControl.NoOfRetry));
+                    cmd.Parameters.AddWithValue("@NextRetryTime", DBUtils.ToDB(batchRunControl.NextRetryTime));
                     cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
                     cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
@@ -560,13 +590,13 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@JobEndTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
-                    cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
+                    cmd.Parameters.AddWithValue("@HttpStatusCode", DBUtils.ToDB(batchRunControl.HttpStatusCode));
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
-                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", DBNull.Value);
-                    cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
-                    cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
-                    cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(error));
+                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
+                    cmd.Parameters.AddWithValue("@Success", DBUtils.ToDB(batchRunControl.Success));
+                    cmd.Parameters.AddWithValue("@NoofRetry", DBUtils.ToDB(batchRunControl.NoOfRetry));
+                    cmd.Parameters.AddWithValue("@NextRetryTime", DBUtils.ToDB(batchRunControl.NextRetryTime));
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
                     cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     cmd.ExecuteNonQuery();
@@ -589,13 +619,13 @@ namespace Theradex.ODS.Extractor
                     cmd.Parameters.AddWithValue("@JobEndTime", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Updated", DateTime.UtcNow);
                     cmd.Parameters.AddWithValue("@Payload", NpgsqlDbType.Jsonb, batchRunControl.Payload);
-                    cmd.Parameters.AddWithValue("@HttpStatusCode", batchRunControl.HttpStatusCode);
+                    cmd.Parameters.AddWithValue("@HttpStatusCode", DBUtils.ToDB(batchRunControl.HttpStatusCode));
                     cmd.Parameters.AddWithValue("@RaveDataUrl", batchRunControl.RaveDataUrl);
-                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", DBNull.Value);
-                    cmd.Parameters.AddWithValue("@Success", batchRunControl.Success);
-                    cmd.Parameters.AddWithValue("@NoofRetry", batchRunControl.NoOfRetry);
-                    cmd.Parameters.AddWithValue("@NextRetryTime", batchRunControl.NextRetryTime != null ? (object)batchRunControl.NextRetryTime : DBNull.Value);
-                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(error));
+                    cmd.Parameters.AddWithValue("@NoofRecordsRetrieved", batchRunControl.NoOfRecordsRetrieved);
+                    cmd.Parameters.AddWithValue("@Success", DBUtils.ToDB(batchRunControl.Success));
+                    cmd.Parameters.AddWithValue("@NoofRetry", DBUtils.ToDB(batchRunControl.NoOfRetry));
+                    cmd.Parameters.AddWithValue("@NextRetryTime", DBUtils.ToDB(batchRunControl.NextRetryTime));
+                    cmd.Parameters.AddWithValue("@ErrorMessage", DBUtils.ToDB(batchRunControl.ErrorMessage));
                     cmd.Parameters.AddWithValue("@ExtractedFileName", DBUtils.ToDB(batchRunControl.ExtractedFileName));
 
                     await cmd.ExecuteNonQueryAsync();
@@ -620,21 +650,30 @@ namespace Theradex.ODS.Extractor
                         {
                             BatchRunControl batchRunControl = new BatchRunControl
                             {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Id = reader.GetInt32("id"),
+                                TableName = reader.GetString("table_name"),
+                                ApiStartDate = reader.GetValueOrDefault<string>("api_startdate"),
+                                ApiEndDate = reader.GetValueOrDefault<string>("api_enddate"),
+                                Slot = reader.GetValueOrDefault<string>("slot"),
+                                NoOfRecords = reader.GetValueOrDefault<int>("no_of_records"),
+                                UrlToPullData = reader.GetValueOrDefault<string>("url_to_pull_data"),
+                                RaveUsername = reader.GetValueOrDefault<string>("rave_username"),
+                                RavePassword = reader.GetValueOrDefault<string>("rave_password"),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>("is_run_complete_flag"),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>("job_starttime"),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>("job_endtime"),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>("url_used_to_get_interval"),
+                                Created = reader.GetValueOrDefault<DateTime>("created"),
+                                Updated = reader.GetValueOrDefault<DateTime>("updated"),
+                                ErrorMessage = reader.GetValueOrDefault<string>("error_message"),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>("no_of_records_retrieved"),
+                                RaveDataUrl = reader.GetValueOrDefault<string>("rave_data_url"),
+                                HttpStatusCode = reader.GetValueOrDefault<string>("http_status_code"),
+                                Success = reader.GetValueOrDefault<string>("success"),
+                                NoOfRetry = reader.GetValueOrDefault<int>("no_of_retry"),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>("next_retry_time"),
+                                Payload = reader.GetValueOrDefault<string>("payload"),
+                                ExtractedFileName = reader.GetValueOrDefault<string>("extracted_file_name")
                             };
                             batchRunControls.Add(batchRunControl);
                         }
@@ -662,21 +701,30 @@ namespace Theradex.ODS.Extractor
                         {
                             BatchRunControl batchRunControl = new BatchRunControl
                             {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Id = reader.GetInt32("id"),
+                                TableName = reader.GetString("table_name"),
+                                ApiStartDate = reader.GetValueOrDefault<string>("api_startdate"),
+                                ApiEndDate = reader.GetValueOrDefault<string>("api_enddate"),
+                                Slot = reader.GetValueOrDefault<string>("slot"),
+                                NoOfRecords = reader.GetValueOrDefault<int>("no_of_records"),
+                                UrlToPullData = reader.GetValueOrDefault<string>("url_to_pull_data"),
+                                RaveUsername = reader.GetValueOrDefault<string>("rave_username"),
+                                RavePassword = reader.GetValueOrDefault<string>("rave_password"),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>("is_run_complete_flag"),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>("job_starttime"),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>("job_endtime"),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>("url_used_to_get_interval"),
+                                Created = reader.GetValueOrDefault<DateTime>("created"),
+                                Updated = reader.GetValueOrDefault<DateTime>("updated"),
+                                ErrorMessage = reader.GetValueOrDefault<string>("error_message"),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>("no_of_records_retrieved"),
+                                RaveDataUrl = reader.GetValueOrDefault<string>("rave_data_url"),
+                                HttpStatusCode = reader.GetValueOrDefault<string>("http_status_code"),
+                                Success = reader.GetValueOrDefault<string>("success"),
+                                NoOfRetry = reader.GetValueOrDefault<int>("no_of_retry"),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>("next_retry_time"),
+                                Payload = reader.GetValueOrDefault<string>("payload"),
+                                ExtractedFileName = reader.GetValueOrDefault<string>("extracted_file_name")
                             };
                             batchRunControls.Add(batchRunControl);
                         }
@@ -704,21 +752,30 @@ namespace Theradex.ODS.Extractor
                         {
                             BatchRunControl batchRunControl = new BatchRunControl
                             {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Id = reader.GetInt32("id"),
+                                TableName = reader.GetString("table_name"),
+                                ApiStartDate = reader.GetValueOrDefault<string>("api_startdate"),
+                                ApiEndDate = reader.GetValueOrDefault<string>("api_enddate"),
+                                Slot = reader.GetValueOrDefault<string>("slot"),
+                                NoOfRecords = reader.GetValueOrDefault<int>("no_of_records"),
+                                UrlToPullData = reader.GetValueOrDefault<string>("url_to_pull_data"),
+                                RaveUsername = reader.GetValueOrDefault<string>("rave_username"),
+                                RavePassword = reader.GetValueOrDefault<string>("rave_password"),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>("is_run_complete_flag"),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>("job_starttime"),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>("job_endtime"),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>("url_used_to_get_interval"),
+                                Created = reader.GetValueOrDefault<DateTime>("created"),
+                                Updated = reader.GetValueOrDefault<DateTime>("updated"),
+                                ErrorMessage = reader.GetValueOrDefault<string>("error_message"),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>("no_of_records_retrieved"),
+                                RaveDataUrl = reader.GetValueOrDefault<string>("rave_data_url"),
+                                HttpStatusCode = reader.GetValueOrDefault<string>("http_status_code"),
+                                Success = reader.GetValueOrDefault<string>("success"),
+                                NoOfRetry = reader.GetValueOrDefault<int>("no_of_retry"),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>("next_retry_time"),
+                                Payload = reader.GetValueOrDefault<string>("payload"),
+                                ExtractedFileName = reader.GetValueOrDefault<string>("extracted_file_name")
                             };
                             batchRunControls.Add(batchRunControl);
                         }
@@ -728,14 +785,80 @@ namespace Theradex.ODS.Extractor
 
             return batchRunControls.FirstOrDefault();
         }
+
         public async Task<BatchRunControl> GetByTableNameAndIdAsync(string tableName, int Id)
+        {
+            using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
+            {
+                await connection.OpenAsync();
+
+                using (NpgsqlCommand cmd = new NpgsqlCommand(
+                    "SELECT id, table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, rave_username, rave_password, is_run_complete_flag, " +
+                    "job_starttime, job_endtime, url_used_to_get_interval, created, updated, " +
+                    "error_message, no_of_records_retrieved, rave_data_url, http_status_code, success, no_of_retry, next_retry_time, " +
+                    "payload, extracted_file_name " +
+                    "FROM public.batch_run_control " +
+                    "WHERE table_name = @TableName AND is_run_complete_flag = 'false'  AND " +
+                    "      job_starttime is null AND job_endtime is null AND id > @Id " +
+                    "ORDER BY api_startdate::timestamp " +
+                    "LIMIT 1", connection))
+                {
+                    cmd.Parameters.AddWithValue("@TableName", tableName);
+                    cmd.Parameters.AddWithValue("@Id", Id);
+
+                    using (NpgsqlDataReader reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            return new BatchRunControl
+                            {
+                                Id = reader.GetInt32("id"),
+                                TableName = reader.GetString("table_name"),
+                                ApiStartDate = reader.GetValueOrDefault<string>("api_startdate"),
+                                ApiEndDate = reader.GetValueOrDefault<string>("api_enddate"),
+                                Slot = reader.GetValueOrDefault<string>("slot"),
+                                NoOfRecords = reader.GetValueOrDefault<int>("no_of_records"),
+                                UrlToPullData = reader.GetValueOrDefault<string>("url_to_pull_data"),
+                                RaveUsername = reader.GetValueOrDefault<string>("rave_username"),
+                                RavePassword = reader.GetValueOrDefault<string>("rave_password"),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>("is_run_complete_flag"),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>("job_starttime"),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>("job_endtime"),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>("url_used_to_get_interval"),
+                                Created = reader.GetValueOrDefault<DateTime>("created"),
+                                Updated = reader.GetValueOrDefault<DateTime>("updated"),
+                                ErrorMessage = reader.GetValueOrDefault<string>("error_message"),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>("no_of_records_retrieved"),
+                                RaveDataUrl = reader.GetValueOrDefault<string>("rave_data_url"),
+                                HttpStatusCode = reader.GetValueOrDefault<string>("http_status_code"),
+                                Success = reader.GetValueOrDefault<string>("success"),
+                                NoOfRetry = reader.GetValueOrDefault<int>("no_of_retry"),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>("next_retry_time"),
+                                Payload = reader.GetValueOrDefault<string>("payload"),
+                                ExtractedFileName = reader.GetValueOrDefault<string>("extracted_file_name")
+
+                            };
+                        }
+                    }
+                }
+            }
+
+            return null; // Return null if no result is found.
+        }
+
+
+        public async Task<BatchRunControl> GetByTableNameAndIdAsync1(string tableName, int Id)
         {
             List<BatchRunControl> batchRunControls = new List<BatchRunControl>();
 
             using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
             {
                 connection.Open();
-                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT * FROM public.batch_run_control WHERE table_name = @TableName AND is_run_complete_flag = 'false'  AND job_starttime is null AND job_endtime is null AND id > @Id ORDER BY api_startdate::timestamp", connection))
+                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT id, table_name, api_startdate, api_enddate, slot, no_of_records, url_to_pull_data, rave_username, rave_password, is_run_complete_flag, " +
+                    "job_starttime, job_endtime, url_used_to_get_interval, created, updated, error_message, no_of_records_retrieved, rave_data_url, http_status_code, success, no_of_retry, next_retry_time, " +
+                    "payload, extracted_file_name  FROM public.batch_run_control " +
+                    "WHERE table_name = @TableName AND is_run_complete_flag = 'false'  AND " +
+                    "      job_starttime is null AND job_endtime is null AND id > @Id ORDER BY api_startdate::timestamp", connection))
                 {
                     cmd.Parameters.AddWithValue("@TableName", tableName);
                     cmd.Parameters.AddWithValue("@Id", Id);
@@ -788,21 +911,30 @@ namespace Theradex.ODS.Extractor
                         {
                             BatchRunControl batchRunControl = new BatchRunControl
                             {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Id = reader.GetInt32("id"),
+                                TableName = reader.GetString("table_name"),
+                                ApiStartDate = reader.GetValueOrDefault<string>("api_startdate"),
+                                ApiEndDate = reader.GetValueOrDefault<string>("api_enddate"),
+                                Slot = reader.GetValueOrDefault<string>("slot"),
+                                NoOfRecords = reader.GetValueOrDefault<int>("no_of_records"),
+                                UrlToPullData = reader.GetValueOrDefault<string>("url_to_pull_data"),
+                                RaveUsername = reader.GetValueOrDefault<string>("rave_username"),
+                                RavePassword = reader.GetValueOrDefault<string>("rave_password"),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>("is_run_complete_flag"),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>("job_starttime"),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>("job_endtime"),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>("url_used_to_get_interval"),
+                                Created = reader.GetValueOrDefault<DateTime>("created"),
+                                Updated = reader.GetValueOrDefault<DateTime>("updated"),
+                                ErrorMessage = reader.GetValueOrDefault<string>("error_message"),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>("no_of_records_retrieved"),
+                                RaveDataUrl = reader.GetValueOrDefault<string>("rave_data_url"),
+                                HttpStatusCode = reader.GetValueOrDefault<string>("http_status_code"),
+                                Success = reader.GetValueOrDefault<string>("success"),
+                                NoOfRetry = reader.GetValueOrDefault<int>("no_of_retry"),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>("next_retry_time"),
+                                Payload = reader.GetValueOrDefault<string>("payload"),
+                                ExtractedFileName = reader.GetValueOrDefault<string>("extracted_file_name")
                             };
                             batchRunControls.Add(batchRunControl);
                         }
@@ -827,21 +959,29 @@ namespace Theradex.ODS.Extractor
                         {
                             BatchRunControl batchRunControl = new BatchRunControl
                             {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                                Id = reader.GetInt32(0),
+                                TableName = reader.GetString(1),
+                                ApiStartDate = reader.GetValueOrDefault<string>(2),
+                                ApiEndDate = reader.GetValueOrDefault<string>(3),
+                                Slot = reader.GetValueOrDefault<string>(4),
+                                NoOfRecords = reader.GetValueOrDefault<int>(5),
+                                UrlToPullData = reader.GetValueOrDefault<string>(6),
+                                RaveUsername = reader.GetValueOrDefault<string>(7),
+                                RavePassword = reader.GetValueOrDefault<string>(8),
+                                IsRunCompleteFlag = reader.GetValueOrDefault<string>(9),
+                                JobStartTime = reader.GetValueOrDefault<DateTime?>(10),
+                                JobEndTime = reader.GetValueOrDefault<DateTime?>(11),
+                                UrlUsedToGetInterval = reader.GetValueOrDefault<string>(12),
+                                Created = reader.GetValueOrDefault<DateTime>(13),
+                                Updated = reader.GetValueOrDefault<DateTime>(14),
+                                ErrorMessage = reader.GetValueOrDefault<string>(15),
+                                NoOfRecordsRetrieved = reader.GetValueOrDefault<int>(16),
+                                RaveDataUrl = reader.GetValueOrDefault<string>(17),
+                                HttpStatusCode = reader.GetValueOrDefault<string>(18),
+                                NoOfRetry = reader.GetValueOrDefault<int>(19),
+                                NextRetryTime = reader.GetValueOrDefault<DateTime>(20),
+                                Payload = reader.GetValueOrDefault<string>(21),
+                                ExtractedFileName = reader.GetValueOrDefault<string>(22)
                             };
                             batchRunControls.Add(batchRunControl);
                         }

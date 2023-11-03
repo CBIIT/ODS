@@ -17,6 +17,7 @@ namespace Theradex.ODS.Extractor.Interfaces
         Task<IEnumerable<T>> GetAllAsync();
         List<T> GetAll();
         void Update(T entity);
+        Task UpdateAsync(T entity);
         void Delete(T entity);
         void Delete(Expression<Func<T, bool>> where);
     }

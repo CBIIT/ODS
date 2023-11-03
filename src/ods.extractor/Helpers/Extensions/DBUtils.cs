@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Data.Common;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -22,6 +23,28 @@ namespace Theradex.ODS.Extractor.Helpers.Extensions
         {
             return value == null ? (object)DBNull.Value : value;
         }
+
+
+        public static T GetValueOrDefault<T>(this DbDataReader dr,
+                                                          string name)
+        {
+            object value = dr[name];
+            if (DBNull.Value == value) return default(T);
+            return (T)value;
+        }
+
+        public static T GetValueOrDefault<T>(this DbDataReader dr,
+                                                            int index)
+        {
+            if (dr.IsDBNull(index)) return default(T);
+            return (T)dr[index];
+        }
+
+        public static bool IsDBNull(this DbDataReader dr, string name)
+        {
+            return dr.IsDBNull(dr.GetOrdinal(name));
+        }
     }
+
 
 }
