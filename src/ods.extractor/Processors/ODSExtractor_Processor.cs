@@ -27,8 +27,6 @@ namespace Theradex.ODS.Extractor.Processors
 {
     public class ODSExtractor_Processor : BaseProcessor, IProcessor
     {
-        const int MaxPageData = 50000;
-
         public ODSExtractor_Processor(
             IMedidataRWSService medidateRWSService,
             ILogger<ODSExtractor_Processor> logger,
