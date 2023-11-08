@@ -17,13 +17,16 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Threading.Tasks;
+using Extension.Methods;
+using System.Drawing.Printing;
+using RestSharp;
+using System.Text.Json.Serialization;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Theradex.ODS.Extractor.Processors
 {
     public class ODSExtractor_Processor : BaseProcessor, IProcessor
     {
-        const int MaxPageData = 50000;
-
         public ODSExtractor_Processor(
             IMedidataRWSService medidateRWSService,
             ILogger<ODSExtractor_Processor> logger,
@@ -42,12 +45,13 @@ namespace Theradex.ODS.Extractor.Processors
                 DateTime folderCurrentDateTime = DateTime.Now;
 
                 // Define the base path where you want to create the folder
-                string basePath = @"C:\Path\To\ResponseFiles\TablesData\";
+                string basePath = @"C:\ODS\Extractor\Data\";
 
                 // Format the current date and time as a string (e.g., "yyyyMMdd_HHmmss")
                 string folderName = folderCurrentDateTime.ToString("yyyyMMdd_HHmmss");
                 // Combine the base path and folder name to create the full path
-                string fullPath = Path.Combine(basePath, folderName);
+                //string fullPath = Path.Combine(basePath, folderName);
+                string fullPath = Path.Combine(basePath);
                 string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
 
 
@@ -55,6 +59,8 @@ namespace Theradex.ODS.Extractor.Processors
                 odsData.TableName = exInput.TableName;
                 odsData.URL = baseUrl;
                 odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
+                odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
+                odsData.RecordCount = exInput.Count;
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
@@ -80,6 +86,8 @@ namespace Theradex.ODS.Extractor.Processors
                     }
 
                     var brcNext = await _odsRepository.GetNextBatchAsync(odsData.TableName.ToUpper());
+                    //brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), 7977);
+
                     if (brcNext == null)
                     {
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Current batch not found!!!");
@@ -88,7 +96,8 @@ namespace Theradex.ODS.Extractor.Processors
                         break;
                     }
 
-                    var isSuccess = await Extract(brcNext, odsData);
+                    var isSuccess = await ExtractSingleBatch(brcNext, odsData);
+                    //var isSuccess = await Extract(brcNext, odsData);
 
                     bexecute = true;
                 }
@@ -103,10 +112,8 @@ namespace Theradex.ODS.Extractor.Processors
                 return false;
             }
         }
-        private async Task<bool> Extract(BatchRunControl batchRunControl, ODSData odsData)
+        private async Task<BatchRunControl> ExtractSingleBatch(BatchRunControl batchRunControl, ODSData odsData)
         {
-
-
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
@@ -120,7 +127,7 @@ namespace Theradex.ODS.Extractor.Processors
             var retryPolicy = Policy
                 .Handle<HttpRequestException>() // Specify the exception to handle
                 .WaitAndRetryAsync(
-                    5, // Retry 5 times
+                    10, // Retry 5 times
                     retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)) // Exponential back-off
                 );
 
@@ -132,25 +139,12 @@ namespace Theradex.ODS.Extractor.Processors
                     durationOfBreak: TimeSpan.FromMinutes(1) // Break for 1 minute on failure
                 );
 
-            var HasActiveJobs = await _odsRepository.HasActiveJobsAsync(batchRunControl.TableName.ToUpper());
-
-            if (HasActiveJobs.Count > 0)
-            {
-                BatchRunControl brc = HasActiveJobs[0];
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; [Id:{brc.Id}]" + $"[Slot:{brc.Slot}] " + $"[NoOfRecords:{brc.NoOfRecords}] " + $"[IsRunCompleteFlag:{brc.IsRunCompleteFlag}] ");
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; There is allready active job running.");
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                return false;
-            }
-
-            await _odsRepository.StartedAsync(batchRunControl);
-
             if (!Directory.Exists(odsData.FilePath))
             {
                 Directory.CreateDirectory(odsData.FilePath);
             }
-
             var brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), batchRunControl.Id);
+            //var brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), 7978);
 
             if (brcNext == null)
             {
@@ -172,6 +166,7 @@ namespace Theradex.ODS.Extractor.Processors
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
             }
 
+            //await _odsRepository.StartedAsync(batchRunControl);
 
             DateTime dtStartDate = DateTime.Parse(batchRunControl.ApiStartDate);
             DateTime dtEndDate = DateTime.Parse(batchRunControl.ApiEndDate);
@@ -188,90 +183,138 @@ namespace Theradex.ODS.Extractor.Processors
                 dtEndDate = dtStartDate.AddDays(365);
             }
 
+
             string formattedStartDate = dtStartDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
             string formattedEndDate = dtEndDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
 
-            string responseDataFileName = Path.Combine(odsData.FilePath, $"{odsData.TableName}_{formattedStartDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_TO_{formattedEndDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}");
 
+            string responseDataFileName = Path.Combine(odsData.FilePath, $"{odsData.TableName}_{batchRunControl.Id}_{formattedStartDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_TO_{formattedEndDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_#PAGENUMBER#");
 
-            string responseDataFileNameWithExtensionRAW = responseDataFileName + "_RAW.json";
-            string responseDataFileNameWithExtension = responseDataFileName + ".json";
-            string error_responseDataFileNameWithExtensionRAW = responseDataFileName + "ERROR_RAW.json";
-            string error_responseDataFileNameWithExtension = responseDataFileName + "ERROR.json";
+            int pageSize = odsData.RecordCount; // Set your desired page size
+            var totalPages = 10000;
+            int pageNumber = 1; // Initialize pageNumber
 
+            Payloads payloads = new Payloads();
+            payloads.Payload = new List<PayloadItem>();
 
-            try
+            while (pageNumber <= totalPages)
             {
-                // Wrap your code in a policy using ExecuteAsync
-                await retryPolicy.ExecuteAsync(async () =>
+                string responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "_RAW.json";
+                string responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + ".json";
+                string error_responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR_RAW.json";
+                string error_responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR.json";
+
+                try
                 {
                     // Inside this block, Polly will handle retries and exponential back-off
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Medidata Rave to fetch All data for [Table:{odsData.TableName}] " +
-                                            $"[StartDate:{batchRunControl.ApiStartDate}]" + $"[EndDate:{batchRunControl.ApiEndDate}] " + $"[URL:{odsData.URL}] ");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Medidata Rave to fetch data for [Table:{odsData.TableName}] " +
+                                            $"[StartDate:{batchRunControl.ApiStartDate}]" + $"[EndDate:{batchRunControl.ApiEndDate}] " + $"[URL:{odsData.URL}] " +
+                                            $"[PageSize:{pageSize}] [PageNumber:{pageNumber}]");
 
+                    string url = $"{odsData.URL}?PageSize={pageSize}&PageNumber={pageNumber}&StartDate={formattedStartDate}&EndDate={formattedEndDate}&TableName={odsData.TableName}";
 
-                    string url = $"{odsData.URL}?PageSize=200000000&StartDate={formattedStartDate}&EndDate={formattedEndDate}&TableName={odsData.TableName}";
-
-
-                    // Call the Medidata Rave service
-                    var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
-
-                    // Check for a failed response
-                    if (response != null || response.StatusCode != HttpStatusCode.OK)
+                    await retryPolicy.ExecuteAsync(async () =>
                     {
-                        throw new HttpRequestException($"HTTP request failed. [Error Exception : {response.ErrorException}] [Content: {response.Content}] ");
-                    }
 
-                    var json = response.Content;
+                        // Call the Medidata Rave service
+                        var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
 
-                    batchRunControl.Success = "SUCCESS";
-                    batchRunControl.HttpStatusCode = response.StatusCode.ToString();
-                    batchRunControl.RaveDataUrl = url;
-                    batchRunControl.ExtractedFileName = responseDataFileNameWithExtension;
+                        // Check for a failed response
+                        if (response == null || response.StatusCode != HttpStatusCode.OK)
+                        {
+                            _logger.LogError($"HTTP request failed. [Error Exception : {response?.ErrorException}] [Content: {response?.Content}] ");
+                            throw new HttpRequestException($"HTTP request failed. [Error Exception : {response?.ErrorException}] [Content: {response?.Content}] ");
+                            //return ; // Exit the loop on failure
+                        }
 
-                    // Deserialize JSON into a C# object
-                    Payloads payload = JsonConvert.DeserializeObject<Payloads>(json);
+                        var json = response.Content;
 
-                    // Remove the "Data" property from the object
-                    foreach (var item in payload.Payload)
-                    {
-                        item.Data = null;
-                    }
+                        // Serialize the modified object back to JSON
+                        batchRunControl.HttpStatusCode = response.StatusCode.ToString();
+                        batchRunControl.RaveDataUrl = url;
+                        batchRunControl.Success = response.StatusCode.ToString();
+                        batchRunControl.ExtractedFileName = responseDataFileNameWithExtension;
 
-                    // Serialize the modified object back to JSON
-                    batchRunControl.Payload = JsonConvert.SerializeObject(payload);
-                    batchRunControl.Payloads = payload;
+                        json = json.Replace("\"Data\":, \"JsonDataChecksum\":", "\"Data\":[], \"JsonDataChecksum\":");
 
-                    // File.WriteAllText(responseDataFileNameWithExtensionRAW, data);
-                    await File.WriteAllTextAsync(responseDataFileNameWithExtension, json);
+                        // Deserialize JSON into a C# object
+                        Payloads payload = JsonConvert.DeserializeObject<Payloads>(json);
+
+                        batchRunControl.Payload = json;
+                        batchRunControl.Payloads = payload;
+
+                        if (payload != null)
+                        {
+                            // Remove the "Data" property from the object
+                            foreach (var item in payload.Payload)
+                            {
+                                item.Data = null;
+                            }
+
+                            var payloadReceived = payload.Payload.FirstOrDefault();
+
+                            if (payloadReceived != null)
+                            {
+                                batchRunControl.NoOfRecords = payloadReceived.TableRowCount;
+                                batchRunControl.NoOfRecordsRetrieved = payloadReceived.QueryCountofRows;
+                                batchRunControl.TotalPages = payloadReceived.TotalPages;
+                                batchRunControl.PageSize = payloadReceived.PageSize;
+                                batchRunControl.PageNumber = payloadReceived.PageNumber;
+
+                                totalPages = payloadReceived.TotalPages;
+
+                                await File.WriteAllTextAsync(responseDataFileNameWithExtension, json);
+
+                                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
+                                                        $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] " + $"[Query Counts :{payloadReceived.QueryCountofRows}] ");
+
+                                await _odsRepository.UpdateAsync(batchRunControl);
+
+                                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; COMPLETED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
+                                                        $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
+                            }
+                        }
+                    });
 
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
-                                            $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
+                                               $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
 
-                    await _odsRepository.CompletedAsync(batchRunControl);
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; COMPLETED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
-                                            $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
-                });
+                    if (batchRunControl.Payloads != null)
+                        payloads.Payload.AddRange(batchRunControl.Payloads.Payload);
+                }
+                catch (HttpRequestException ex)
+                {
+                    // Handle the exception
+                    File.WriteAllText(error_responseDataFileNameWithExtensionRAW, ex.Message);
+                    File.WriteAllText(error_responseDataFileNameWithExtension, ex.Message);
+                    _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occurred. {ex}");
+                    batchRunControl.ExtractedFileName = error_responseDataFileNameWithExtension;
+                    batchRunControl.ErrorMessage = ex.StackTrace;
+                    batchRunControl.Success = "FAILED";
+                    await _odsRepository.CompletedErrorAsync(batchRunControl, ex.StackTrace);
+                }
+                catch (BrokenCircuitException ex)
+                {
+                    // The circuit breaker is open, handle accordingly
+                    _logger.LogError($"TraceId:{_appSettings.TraceId}; Circuit breaker is open. {ex}");
+                }
+
+                pageNumber++; // Increment pageNumber for the next iteration
             }
-            catch (HttpRequestException ex)
-            {
-                // Handle the exception
-                File.WriteAllText(error_responseDataFileNameWithExtensionRAW, ex.Message);
-                File.WriteAllText(error_responseDataFileNameWithExtension, ex.Message);
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occurred. {ex}");
-                batchRunControl.ExtractedFileName = error_responseDataFileNameWithExtension;
-                batchRunControl.ErrorMessage= ex.StackTrace;
-                await _odsRepository.CompletedErrorAsync(batchRunControl, ex.StackTrace);
-            }
-            catch (BrokenCircuitException ex)
-            {
-                // The circuit breaker is open, handle accordingly
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; Circuit breaker is open. {ex}");
-            }
+
+            batchRunControl.Payload = JsonConvert.SerializeObject(payloads);
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
 
-            return true;
+            await _odsRepository.CompletedAsync(batchRunControl);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; COMPLETED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
+                                   $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] ");
+
+
+            return batchRunControl;
+
+
         }
+
     }
 }

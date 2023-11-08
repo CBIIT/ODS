@@ -17,6 +17,7 @@ namespace Theradex.ODS.Extractor.Interfaces
         Task<IEnumerable<T>> GetAllAsync();
         List<T> GetAll();
         void Update(T entity);
+        Task UpdateAsync(T entity);
         void Delete(T entity);
         void Delete(Expression<Func<T, bool>> where);
     }
@@ -34,6 +35,12 @@ namespace Theradex.ODS.Extractor.Interfaces
         Task<T> GetByTableNameAndIdAsync(string tableName, int Id);
         Task<List<T>> HasActiveJobsAsync(string tableName);
         List<T> HasActiveJobs(string tableName);
+    }
+
+    public interface IManagerTableInfoRepository<T> : ODSNpgsqlLogger<T>
+    {
+
+
     }
 }
 

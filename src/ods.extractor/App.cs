@@ -19,6 +19,7 @@ namespace Theradex.ODS.Extractor
         private readonly IAWSCoreHelper _awsCoreHelper;
         private readonly Func<ExtractorTypeEnum, IProcessor> _processServiceResolver;
         private readonly IConfigManager _configManager;
+        private const int INPUT_COUNT = 50000;
 
         public App(ILogger<App> logger,
             IOptions<AppSettings> appOptions,
@@ -45,7 +46,7 @@ namespace Theradex.ODS.Extractor
 
                 return null;
             }
-            
+
             if (args.Length < 5)
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; 5 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
@@ -81,10 +82,10 @@ namespace Theradex.ODS.Extractor
 
             if (!isValid)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; count {count} not valid; Aborting.");
-
-                return null;
+                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; count {count} not valid; Defaulting.");
+                count1 = INPUT_COUNT;
             }
+            else if (count1 <= 0) { _logger.LogWarning($"TraceId:{_appSettings.TraceId}; count {count} <= 0; Defaulting.");  count1 = INPUT_COUNT; }
 
             isValid = DateTime.TryParse(startDate, out DateTime startDate1);
 
@@ -134,7 +135,7 @@ namespace Theradex.ODS.Extractor
 
                 var startTime = DateTime.Now;
 
-                var isSuccess = await processor.ProcessAsync(extractorInput);             
+                var isSuccess = await processor.ProcessAsync(extractorInput);
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction;");
 
