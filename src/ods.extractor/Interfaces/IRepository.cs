@@ -36,5 +36,11 @@ namespace Theradex.ODS.Extractor.Interfaces
         Task<List<T>> HasActiveJobsAsync(string tableName);
         List<T> HasActiveJobs(string tableName);
     }
+
+    public interface IManagerTableInfoRepository<T> : ODSNpgsqlLogger<T>
+    {
+
+
+    }
 }
 

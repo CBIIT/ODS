@@ -33,7 +33,8 @@ namespace Theradex.ODS.Extractor
         private readonly ILogger<MedidataRWSService> _logger;
         private readonly AppSettings _appSettings;
         protected readonly IAWSCoreHelper _awsCoreHelper;
-        private readonly string defalutConnectionString = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+        private readonly string defalutConnectionString = "Host=ods.cluster-cgntten8b01g.us-west-1.rds.amazonaws.com;Username=postgres;Password=Password0001;Database=ods;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+        //private readonly string defalutConnectionString = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
         private readonly string CONNECTION_STRING;
 
         public BatchRunControlRepository(ILogger<MedidataRWSService> logger, IOptions<AppSettings> appOptions, IAWSCoreHelper awsCoreHelper)
