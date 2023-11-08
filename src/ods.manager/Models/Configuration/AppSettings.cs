@@ -12,6 +12,6 @@ namespace Theradex.ODS.Manager.Models.Configuration
 
         public string TraceId { get; set; }
 
-        public string ArchiveBucket { get; set; }
+        public string ArchiveBucket { get; set; } = "ods-table-data";
     }
 }

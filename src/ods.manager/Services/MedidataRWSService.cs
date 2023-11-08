@@ -25,9 +25,15 @@ namespace Theradex.ODS.Manager.Services
             _awsCoreHelper = awsCoreHelper;
         }
 
-        private async Task<bool> SaveData(string response, string tableName, string fileName)
+        private async Task<bool> SaveData(string response, string tableName, string fileName, string bucketName = "ods-table-data")
         {
-            var path = string.Format($"{tableName}/{fileName}.xml");
+            var path = string.Format($"odsmanager/{tableName}/{fileName}");
+
+            if (string.IsNullOrEmpty(_appSettings.ArchiveBucket))
+            {
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed as S3 Bucket was not configured; Path: {path}");
+                return false;
+            }
 
             var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, path, response);
 
@@ -94,13 +100,16 @@ namespace Theradex.ODS.Manager.Services
 
             try
             {
-                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) });
+                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword), MaxTimeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs() });
 
 
                 var request = new RestRequest(_rwsSettings.RWSServer + resource)
                 {
-                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs()
+                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs(),
+
                 };
+
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Rave Timeout (milliseconds): {request.Timeout}; {resource};");
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Getting data from Rave; {resource};");
 
@@ -111,15 +120,19 @@ namespace Theradex.ODS.Manager.Services
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully got data from Rave; {resource};");
 
                     var fileName = responseDataFileNameWithExtensionRAW;
+                    
+                    var isSaveSuccess = await SaveData(response.Content, tableName, Path.GetFileName(fileName));
 
-                    var isSaveSuccess = await SaveData(response.Content, tableName, fileName);
+                    // Write the response to a file
+                    //await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW, response != null ? response.Content : string.Empty);
 
                     return response;
                 }
                 else
                 {
                     _logger.LogError($"TraceId:{_appSettings.TraceId}; Failed getting data from Rave; {resource};");
-
+                    // Write the response to a file
+                    await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW.Replace("json", "_ERROR.json"), response != null ? response.Content : string.Empty);
                     return response;
                 }
             }

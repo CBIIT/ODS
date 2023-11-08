@@ -8,6 +8,9 @@
         "ODSExtractorEnvironment": "dev-nci"
       },
       "sqlDebugging": false
+    },
+    "Docker": {
+      "commandName": "Docker"
     }
   }
 }

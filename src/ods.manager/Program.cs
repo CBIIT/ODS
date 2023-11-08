@@ -12,6 +12,14 @@ using Theradex.ODS.Manager.Processors;
 using Theradex.ODS.Manager.Services;
 using Theradex.ODS.Models;
 using Theradex.ODS.Manager.Repositories;
+using LocalStack.Client.Extensions;
+using Amazon.DynamoDBv2;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon.Runtime;
+using System;
+using Microsoft.AspNetCore.Hosting;
+using Amazon;
+using Microsoft.Extensions.Options;
 
 namespace Theradex.ODS.Manager
 {
@@ -29,24 +37,57 @@ namespace Theradex.ODS.Manager
 
         private static IHostBuilder CreateHostBuilder(string[] args)
         {
+            Environment.SetEnvironmentVariable("AWS_SERVICE_URL", string.Empty);
+
             var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
             var host = Host.CreateDefaultBuilder(args)
                 .ConfigureServices((context, services) =>
                 {
                     services.AddTransient<IApp, App>();
-
+                    
+                    services.AddLocalStack(context.Configuration);
                     services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
 
-                    services.AddAWSService<IAmazonS3>();
+                    if (environmentName.ToLower() == "development")
+                    {
+                        services.AddSingleton<IAmazonDynamoDB>(sp =>
+                        {
+                            var clientConfig = new AmazonDynamoDBConfig
+                            {
+                                ServiceURL = "http://localhost:4566",
+                                UseHttp = true
+                            };
+                            return new AmazonDynamoDBClient(new BasicAWSCredentials("testkey", "testsecret"), clientConfig);
+                        });
+                        Console.WriteLine("Added LocalStack DynamoDb");
+
+                        var amazonS3 = new AmazonS3Client(new BasicAWSCredentials("testkey", "testsecret"), new AmazonS3Config
+                        {
+                            RegionEndpoint = RegionEndpoint.USEast1,
+                            ServiceURL = "http://localhost:4566",
+                            ForcePathStyle = true,
+                            UseHttp = true,
+                            AuthenticationRegion = "us-east-1",
+                        });
+
+                        services.AddSingleton(typeof(IAmazonS3), provider => amazonS3);
+                        Console.WriteLine("Added LocalStack S3");
+                    }
+                    else
+                    {
+                        services.AddAWSService<IAmazonDynamoDB>();
+                        services.AddAWSService<IAmazonS3>();
+                    }
+
+                    services.AddSingleton<IConfigManager, ConfigManager>();
 
                     services.AddTransient<IAWSCoreHelper, AWSCoreHelper>();
 
                     services.AddTransient<IMedidataRWSService, MedidataRWSService>();
 
                     services.AddTransient<IBatchRunControlRepository<BatchRunControl>, BatchRunControlRepository>();
-
-                    services.AddSingleton<IConfigManager, ConfigManager>();
+                    services.AddTransient<IManagerTableInfoRepository<BatchRunControl>, ManagerTableInfoRepository>();
 
                     services.AddScoped<ODSManager_Processor>();
 
