@@ -778,14 +778,20 @@ namespace Theradex.ODS.Manager.Processors
                         throw;
                     }
 
+                    odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
+
                     if (odsmanager_table_matadata.Payloads.Payload != null && odsmanager_table_matadata.Payloads.Payload.Count == 1)
                     {
                         var isMinDateValid = DateTime.TryParse(odsmanager_table_matadata.Payloads.Payload.First().MinDate, out minDate);
                         if (!isMinDateValid)
                         {
                             _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Min date not valid.");
-                            continue;
+
+                            minDate = new DateTime(2000,01,01);
+                            odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Defaulting to 01/01/2000");
                         }
+
                     }
 
                     ODSData oDSData = new ODSData();
@@ -833,7 +839,7 @@ namespace Theradex.ODS.Manager.Processors
 
                     string bucket = $"{formattedStartDate}_{formattedEndDate}";
 
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Started:{bucket}");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Table:{batchRunControl.TableName}] Started:{bucket}");
                     var batchRunControlRow = new BatchRunControl();
 
                     batchRunControlRow.TableName = batchRunControl.TableName;
@@ -844,6 +850,7 @@ namespace Theradex.ODS.Manager.Processors
                     batchRunControlRow.Slot = bucket;
                     batchRunControlRow.RaveUsername = CONFIG_RWSUSERNAME;
                     batchRunControlRow.RavePassword = CONFIG_RWSPASSWORD;
+                    batchRunControlRow.RaveDataUrl = batchRunControl.RaveDataUrl;
                     batchRunControlRow.NoOfRecords = batchRunControl.NoOfRecords;
                     batchRunControlRow.IsRunCompleteFlag = "false";
                     batchRunControlRow.Payload = null;
