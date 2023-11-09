@@ -1,19 +1,20 @@
 {
   "profiles": {
-    "WSL": {
-      "commandName": "WSL2",
+    "ODSExtractor_devnci": {
+      "commandName": "Project",
+      "commandLineArgs": "ODSExtractor FOLDERS",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ODSExtractorEnvironment": "dev-nci"
       },
       "distributionName": ""
     },
-    "ODSExtractor": {
+    "ODSExtractor_local": {
       "commandName": "Project",
-      "commandLineArgs": "ODSExtractor 2020-09-08T00:00:00 2020-09-08T01:00:00 datapoints 107667",
+      "commandLineArgs": "ODSExtractor FOLDERS",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development",
-        "ODSExtractorEnvironment": "dev-nci"
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSExtractorEnvironment": "local-stack"
       }
     }
   }

@@ -45,22 +45,22 @@ namespace Theradex.ODS.Extractor.Processors
                 DateTime folderCurrentDateTime = DateTime.Now;
 
                 // Define the base path where you want to create the folder
-                string basePath = @"C:\ODS\Extractor\Data\";
+                //string basePath = @"C:\ODS\Extractor\Data\";
 
                 // Format the current date and time as a string (e.g., "yyyyMMdd_HHmmss")
-                string folderName = folderCurrentDateTime.ToString("yyyyMMdd_HHmmss");
+                //string folderName = folderCurrentDateTime.ToString("yyyyMMdd_HHmmss");
                 // Combine the base path and folder name to create the full path
                 //string fullPath = Path.Combine(basePath, folderName);
-                string fullPath = Path.Combine(basePath);
-                string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
 
+                //string fullPath = Path.Combine(basePath);
+
+                string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
 
                 ODSData odsData = new ODSData();
                 odsData.TableName = exInput.TableName;
                 odsData.URL = baseUrl;
-                odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
-                odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
-                odsData.RecordCount = exInput.Count;
+                //odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
+                //odsData.RecordCount = exInput.Count;
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
@@ -112,6 +112,7 @@ namespace Theradex.ODS.Extractor.Processors
                 return false;
             }
         }
+
         private async Task<BatchRunControl> ExtractSingleBatch(BatchRunControl batchRunControl, ODSData odsData)
         {
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
@@ -139,12 +140,12 @@ namespace Theradex.ODS.Extractor.Processors
                     durationOfBreak: TimeSpan.FromMinutes(1) // Break for 1 minute on failure
                 );
 
-            if (!Directory.Exists(odsData.FilePath))
-            {
-                Directory.CreateDirectory(odsData.FilePath);
-            }
+            //if (!Directory.Exists(odsData.FilePath))
+            //{
+            //    Directory.CreateDirectory(odsData.FilePath);
+            //}            
+
             var brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), batchRunControl.Id);
-            //var brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), 7978);
 
             if (brcNext == null)
             {
@@ -187,10 +188,9 @@ namespace Theradex.ODS.Extractor.Processors
             string formattedStartDate = dtStartDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
             string formattedEndDate = dtEndDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
 
+            string responseDataFileName = $"{odsData.TableName}_{batchRunControl.Id}_{formattedStartDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_TO_{formattedEndDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_#PAGENUMBER#";
 
-            string responseDataFileName = Path.Combine(odsData.FilePath, $"{odsData.TableName}_{batchRunControl.Id}_{formattedStartDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_TO_{formattedEndDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_#PAGENUMBER#");
-
-            int pageSize = odsData.RecordCount; // Set your desired page size
+            int pageSize = 50000; //odsData.RecordCount; // Set your desired page size
             var totalPages = 10000;
             int pageNumber = 1; // Initialize pageNumber
 
@@ -215,7 +215,6 @@ namespace Theradex.ODS.Extractor.Processors
 
                     await retryPolicy.ExecuteAsync(async () =>
                     {
-
                         // Call the Medidata Rave service
                         var response = await _medidateRWSService.GetAndWriteToDiskWithResponse(odsData.TableName, url, responseDataFileNameWithExtensionRAW);
 
@@ -315,6 +314,5 @@ namespace Theradex.ODS.Extractor.Processors
 
 
         }
-
     }
 }

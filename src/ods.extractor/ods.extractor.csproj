@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <PackageReference Include="Amazon.Extensions.Configuration.SystemsManager" Version="6.0.0" />
-    <PackageReference Include="AWSSDK.Core" Version="3.7.204.8" />
+    <PackageReference Include="AWSSDK.Core" Version="3.7.204.13" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.205.17" />
     <PackageReference Include="AWSSDK.SimpleEmail" Version="3.7.200.61" />
     <PackageReference Include="CsvHelper" Version="30.0.1" />
@@ -30,6 +30,11 @@
     <PackageReference Include="Polly" Version="8.0.0" />
     <PackageReference Include="RestSharp" Version="110.2.0" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="7.0.0" />
+
+	  <PackageReference Include="LocalStack.Client" Version="1.4.1" />
+	  <PackageReference Include="LocalStack.Client.Extensions" Version="1.2.2" />
+	  <PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.203.13" />
+
   </ItemGroup>
 
   <ItemGroup>
@@ -44,6 +49,9 @@
 
   <ItemGroup>
     <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="appsettings.local.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>

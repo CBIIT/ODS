@@ -32,18 +32,19 @@ namespace Theradex.ODS.Extractor
     {
         private readonly ILogger<MedidataRWSService> _logger;
         private readonly AppSettings _appSettings;
+        private readonly ODSSettings _odsSettings;
         protected readonly IAWSCoreHelper _awsCoreHelper;
-        private readonly string defalutConnectionString = "Host=ods.cluster-cgntten8b01g.us-west-1.rds.amazonaws.com;Username=postgres;Password=Password0001;Database=ods;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
-        //private readonly string defalutConnectionString = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+        private readonly string defalutConnectionString = "Host={0};Username={1};Password={2};Database={3};Port={4};Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
         private readonly string CONNECTION_STRING;
 
-        public BatchRunControlRepository(ILogger<MedidataRWSService> logger, IOptions<AppSettings> appOptions, IAWSCoreHelper awsCoreHelper)
+        public BatchRunControlRepository(ILogger<MedidataRWSService> logger, IOptions<AppSettings> appOptions, IOptions<ODSSettings> odsOptions, IAWSCoreHelper awsCoreHelper)
         {
             _logger = logger;
             _appSettings = appOptions.Value;
+            _odsSettings = odsOptions.Value;
             _awsCoreHelper = awsCoreHelper;
-            CONNECTION_STRING = defalutConnectionString;
 
+            CONNECTION_STRING = string.Format(defalutConnectionString, _odsSettings.Host, _odsSettings.Username, _odsSettings.Password, _odsSettings.Database, _odsSettings.Port);
         }
 
         public void Add(BatchRunControl entity)
