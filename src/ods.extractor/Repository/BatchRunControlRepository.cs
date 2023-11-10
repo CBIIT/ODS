@@ -45,6 +45,8 @@ namespace Theradex.ODS.Extractor
             _awsCoreHelper = awsCoreHelper;
 
             CONNECTION_STRING = string.Format(defalutConnectionString, _odsSettings.Host, _odsSettings.Username, _odsSettings.Password, _odsSettings.Database, _odsSettings.Port);
+
+            _logger.LogInformation($"CONNECTION_STRING: {CONNECTION_STRING}");
         }
 
         public void Add(BatchRunControl entity)
