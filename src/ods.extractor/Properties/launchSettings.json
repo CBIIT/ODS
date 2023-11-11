@@ -2,7 +2,7 @@
   "profiles": {
     "ODSExtractor_devnci": {
       "commandName": "Project",
-      "commandLineArgs": "ODSExtractor FOLDERS dev",
+      "commandLineArgs": "ODSExtractor EXTERNALUSERS dev",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ODSExtractorEnvironment": "dev-nci"

@@ -96,7 +96,7 @@ namespace Theradex.ODS.Extractor.Processors
                         break;
                     }
 
-                    odsData.URL = brcNext.UrlToPullData;
+                    odsData.URL = brcNext.RaveDataUrl;
 
                     var isSuccess = await ExtractSingleBatch(brcNext, odsData);
                     //var isSuccess = await Extract(brcNext, odsData);
