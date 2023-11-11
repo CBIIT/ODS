@@ -33,6 +33,106 @@ namespace Theradex.ODS.Manager.Processors
         {
             try
             {
+
+
+                var s = @"resource ""aws_cloudwatch_event_target"" ""odsextractor_DATAPOINTS"" {
+  rule      = aws_cloudwatch_event_rule.odsextractor_DATAPOINTS.name
+  target_id = ""odsextractor_DATAPOINTS""
+  role_arn = ""arn:aws:iam::${local.myaccount}:role/ecsEventsRole""
+  arn      = aws_ecs_cluster.theradex_dev_nci_cluster_odsextractor.id 
+  count = 1
+  ecs_target {
+    task_count        = 1
+    task_definition_arn = aws_ecs_task_definition.odsextractor.arn
+    launch_type       = ""FARGATE""
+    platform_version  = ""LATEST""
+    network_configuration {
+      assign_public_ip = false
+      security_groups  = [ aws_security_group.theradex_app_odsextractor_sg.id ]
+      subnets          = local.private_subnet_ids
+    }
+  }
+   input  = jsonencode(
+        {
+            containerOverrides = [
+             {
+                command          = [""ODSExtractor"", ""DATAPOINTS""]
+                environmentFiles = []
+                name             = ""${var.odsextractor_container_name}""
+             },
+            ]
+        })
+}";
+
+                List<string> lstTables = new List<string>
+                            {
+                                "DATAPOINTROLESTATUS",
+                                "DATAPOINTS",
+                                "DATAPOINTREVIEWSTATUS",
+                                "REPORTINGRECORDSEXT2",
+                                "DATADICTIONARYENTRIES",
+                                "RECORDS",
+                                "FIELDRESTRICTIONS",
+                                "REPORTINGLABDATAPOINTS",
+                                "REPORTINGRECORDS",
+                                "FIELDS",
+                                "DATAPAGES",
+                                "VARIABLES",
+                                "FORMRESTRICTIONS",
+                                "INSTANCES",
+                                "SUBJECTMATRIX",
+                                "FOLDERFORMS",
+                                "DATADICTIONARIES",
+                                "SUBJECTROLESTATUS",
+                                "USERSTUDYSITES",
+                                "DERIVATIONSTEPS",
+                                "USEROBJECTROLE",
+                                "FORMS",
+                                "FOLDERS",
+                                "REPORTINGLABDPDELETES",
+                                "LOCALIZEDDATASTRINGS",
+                                "DERIVATIONS",
+                                "LOCALIZEDDATASTRINGPKS",
+                                "SUBJECTSTATUSHISTORY",
+                                "SUBJECTS",
+                                "LOCALIZEDSTRINGS",
+                                "USERS",
+                                "STUDYSITES",
+                                "EXTERNALUSERS",
+                                "LABASSIGNMENTS",
+                                "SITES",
+                                "STUDIES",
+                                "VARIABLECHANGEAUDITS",
+                                "LABS",
+                                "PROJECTS",
+                                "CONFIGURATION",
+                                "ROLESUBJECTSTATUSACCESS",
+                                "LABUNITDICTIONARYENTRIES",
+                                "LABUNITS",
+                                "ROLESALLMODULES",
+                                "LABUNITDICTIONARIES",
+                                "RANGETYPEVARIABLES",
+                                "SUBJECTSTATUS",
+                                "FIELDOIDDIRECTORY",
+                                "LABSTANDARDGROUPENTRIES",
+                                "LABSTANDARDGROUPS",
+                                "LOCALIZATIONCONTEXTS",
+                                "LOCALIZATIONS",
+                                "SITEGROUPS",
+                                "PROJECTSOURCESYSTEMR",
+                                "SUBJECTSTATUSCATEGORYR",
+                                "LABUNITCONVERSIONS",
+                                "LABUPDATEQUEUE",
+                                "UPLOADDATAPOINTS"
+                            };
+
+                foreach (var item in lstTables)
+                {
+                    var o = s.Replace("DATAPOINTS", item);
+                    Console.WriteLine(o);
+                }
+                return false ;
+
                 string rootDirectory = @"C:\Path\To\ResponseFiles\Intervals\20231023_134033\"; // Replace with the root directory path
                 var isSuccess = await LoadSingle(rootDirectory,exInput.TableName);
                 return isSuccess;

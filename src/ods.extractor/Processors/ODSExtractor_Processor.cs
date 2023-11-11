@@ -54,11 +54,11 @@ namespace Theradex.ODS.Extractor.Processors
 
                 //string fullPath = Path.Combine(basePath);
 
-                string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
+                //string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
 
                 ODSData odsData = new ODSData();
                 odsData.TableName = exInput.TableName;
-                odsData.URL = baseUrl;
+                //odsData.URL = baseUrl;
                 //odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
                 //odsData.RecordCount = exInput.Count;
 
@@ -95,6 +95,8 @@ namespace Theradex.ODS.Extractor.Processors
                         bexecute = false;
                         break;
                     }
+
+                    odsData.URL = brcNext.UrlToPullData;
 
                     var isSuccess = await ExtractSingleBatch(brcNext, odsData);
                     //var isSuccess = await Extract(brcNext, odsData);
