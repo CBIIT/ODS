@@ -32,7 +32,7 @@ namespace Theradex.ODS.Extractor.Services
         {
             if(_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                var key = $"odsextractor/{tableName}/{fileName}";
+                var key = $"{_appSettings.Env}/Extractor/Data/{tableName}/{fileName}";
 
                 var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
 
@@ -48,7 +48,7 @@ namespace Theradex.ODS.Extractor.Services
 
             if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
             {
-                var basePath = Path.Combine(_appSettings.LocalArchivePath, "odsextractor", tableName);
+                var basePath = Path.Combine(_appSettings.LocalArchivePath, _appSettings.Env, "Extractor", "Data", tableName);
 
                 if (!Directory.Exists(basePath))
                 {

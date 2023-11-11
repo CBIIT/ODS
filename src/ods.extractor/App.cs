@@ -47,19 +47,20 @@ namespace Theradex.ODS.Extractor
                 return null;
             }
 
-            if (args.Length < 2)
+            if (args.Length < 3)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; 2 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; 3 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
 
                 return null;
             }
 
             var extractorType = args[0];           
             var tableName = args[1];
-            
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; tableName {tableName};");
+            var env = args[2];
 
-            if (extractorType.IsNullOrEmpty() || tableName.IsNullOrEmpty())
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; tableName {tableName}; env {env};");
+
+            if (extractorType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; One or more execution Parameters are empty; Aborting.");
 
@@ -74,6 +75,8 @@ namespace Theradex.ODS.Extractor
 
                 return null;
             }
+
+            _appSettings.Env = env;
 
             return new ExtractorInput { TableName = tableName, ExtractorType = extractorTypeToRun };
         }
@@ -90,7 +93,7 @@ namespace Theradex.ODS.Extractor
 
                 var extractorInput = ValidateAndParseArguments(args);
 
-                if (extractorInput == null) return;                
+                if (extractorInput == null) return;
 
                 var processor = _processServiceResolver(extractorInput.ExtractorType);
 

@@ -37,8 +37,6 @@ namespace Theradex.ODS.Extractor
 
         private static IHostBuilder CreateHostBuilder(string[] args)
         {
-            //Environment.SetEnvironmentVariable("AWS_SERVICE_URL", string.Empty);
-
             var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
             var host = Host.CreateDefaultBuilder(args)
