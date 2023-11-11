@@ -41,26 +41,9 @@ namespace Theradex.ODS.Extractor.Processors
         {
             try
             {
-                // Get the current date and time
                 DateTime folderCurrentDateTime = DateTime.Now;
-
-                // Define the base path where you want to create the folder
-                //string basePath = @"C:\ODS\Extractor\Data\";
-
-                // Format the current date and time as a string (e.g., "yyyyMMdd_HHmmss")
-                //string folderName = folderCurrentDateTime.ToString("yyyyMMdd_HHmmss");
-                // Combine the base path and folder name to create the full path
-                //string fullPath = Path.Combine(basePath, folderName);
-
-                //string fullPath = Path.Combine(basePath);
-
-                //string baseUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
-
                 ODSData odsData = new ODSData();
                 odsData.TableName = exInput.TableName;
-                //odsData.URL = baseUrl;
-                //odsData.FilePath = Path.Combine(fullPath, odsData.TableName);
-                //odsData.RecordCount = exInput.Count;
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
@@ -86,7 +69,6 @@ namespace Theradex.ODS.Extractor.Processors
                     }
 
                     var brcNext = await _odsRepository.GetNextBatchAsync(odsData.TableName.ToUpper());
-                    //brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), 7977);
 
                     if (brcNext == null)
                     {
@@ -96,11 +78,13 @@ namespace Theradex.ODS.Extractor.Processors
                         break;
                     }
 
-                    odsData.URL = brcNext.RaveDataUrl;
+                    ///RaveWebServices/datasets/ThxExtracts2.json?PageSize=50000&PageNumber=1&StartDate=2018-02-17T00:00:00.0000000&EndDate=2018-02-23T00:00:00.0000000&TableName=CONFIGURATION
+                    string[] parts = brcNext.RaveDataUrl.Split('?');
+                    string baseUrl = parts[0]; // This will contain "RaveWebServices/datasets/ThxExtracts2.json"
+
+                    odsData.URL = baseUrl;
 
                     var isSuccess = await ExtractSingleBatch(brcNext, odsData);
-                    //var isSuccess = await Extract(brcNext, odsData);
-
                     bexecute = true;
                 }
 
@@ -118,11 +102,11 @@ namespace Theradex.ODS.Extractor.Processors
         private async Task<BatchRunControl> ExtractSingleBatch(BatchRunControl batchRunControl, ODSData odsData)
         {
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction");
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting ODS Extraction - ExtractSingleBatch ");
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current TableName : " + batchRunControl.TableName);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId};        Current Id : " + batchRunControl.Id.ToString());
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + batchRunControl.ApiEndDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + batchRunControl.ApiStartDate);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId};   Current Enddate : " + batchRunControl.ApiEndDate);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
 
@@ -142,32 +126,6 @@ namespace Theradex.ODS.Extractor.Processors
                     durationOfBreak: TimeSpan.FromMinutes(1) // Break for 1 minute on failure
                 );
 
-            //if (!Directory.Exists(odsData.FilePath))
-            //{
-            //    Directory.CreateDirectory(odsData.FilePath);
-            //}            
-
-            var brcNext = await _odsRepository.GetByTableNameAndIdAsync(odsData.TableName.ToUpper(), batchRunControl.Id);
-
-            if (brcNext == null)
-            {
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Next batch not found!!!");
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Defaulting to Current system date!!!");
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                batchRunControl.ApiEndDate = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
-            }
-            else
-            {
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Next batch found!!!");
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                DateTime tdtEndDate = DateTime.Parse(brcNext.ApiStartDate).AddDays(-1);
-                batchRunControl.ApiEndDate = tdtEndDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Next TableName : " + brcNext.TableName);
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Next Id : " + brcNext.Id.ToString());
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Next StartDate : " + brcNext.ApiEndDate);
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Next Enddate : " + brcNext.ApiEndDate);
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-            }
 
             //await _odsRepository.StartedAsync(batchRunControl);
 
@@ -225,7 +183,6 @@ namespace Theradex.ODS.Extractor.Processors
                         {
                             _logger.LogError($"HTTP request failed. [Error Exception : {response?.ErrorException}] [Content: {response?.Content}] ");
                             throw new HttpRequestException($"HTTP request failed. [Error Exception : {response?.ErrorException}] [Content: {response?.Content}] ");
-                            //return ; // Exit the loop on failure
                         }
 
                         var json = response.Content;
@@ -286,13 +243,14 @@ namespace Theradex.ODS.Extractor.Processors
                 catch (HttpRequestException ex)
                 {
                     // Handle the exception
-                    File.WriteAllText(error_responseDataFileNameWithExtensionRAW, ex.Message);
-                    File.WriteAllText(error_responseDataFileNameWithExtension, ex.Message);
+                    await SaveData(ex.ToString(), batchRunControl.TableName, error_responseDataFileNameWithExtensionRAW);
+                    await SaveData(ex.ToString(), batchRunControl.TableName, error_responseDataFileNameWithExtension);
+
                     _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occurred. {ex}");
                     batchRunControl.ExtractedFileName = error_responseDataFileNameWithExtension;
-                    batchRunControl.ErrorMessage = ex.StackTrace;
+                    batchRunControl.ErrorMessage = ex.ToString();
                     batchRunControl.Success = "FAILED";
-                    await _odsRepository.CompletedErrorAsync(batchRunControl, ex.StackTrace);
+                    await _odsRepository.CompletedErrorAsync(batchRunControl, ex.ToString());
                 }
                 catch (BrokenCircuitException ex)
                 {
@@ -315,6 +273,48 @@ namespace Theradex.ODS.Extractor.Processors
             return batchRunControl;
 
 
+        }
+
+        private async Task<bool> SaveData(string response, string tableName, string fileName)
+        {
+            if (_appSettings.ArchiveBucket.NotNullAndNotEmpty())
+            {
+                var key = $"odsextractor/{tableName}/{fileName}";
+
+                var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
+
+                if (!isSuccess)
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {key}");
+                }
+                else
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {key}");
+                }
+            }
+
+            if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                var basePath = Path.Combine(_appSettings.LocalArchivePath, "odsextractor", tableName);
+
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                var path = Path.Combine(basePath, fileName);
+
+                await File.WriteAllTextAsync(path, response);
+            }
+
+            if (!_appSettings.ArchiveBucket.NotNullAndNotEmpty() && !_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; No ArchiveBucket or LocalArchivePath configured;");
+
+                return false;
+            }
+
+            return true;
         }
     }
 }
