@@ -2,7 +2,7 @@
   "profiles": {
     "ODSExtractor_devnci": {
       "commandName": "Project",
-      "commandLineArgs": "ODSManager EXTERNALUSERS dev",
+      "commandLineArgs": "ODSExtractor EXTERNALUSERS dev",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ODSExtractorEnvironment": "dev-nci"
@@ -11,7 +11,7 @@
     },
     "ODSExtractor_local": {
       "commandName": "Project",
-      "commandLineArgs": "ODSManager DATAPOINTS dev",
+      "commandLineArgs": "ODSExtractor FOLDERS dev",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSExtractorEnvironment": "local-stack"

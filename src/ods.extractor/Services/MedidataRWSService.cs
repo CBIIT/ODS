@@ -6,6 +6,10 @@ using Theradex.ODS.Extractor.Helpers.Extensions;
 using Theradex.ODS.Extractor.Interfaces;
 using Theradex.ODS.Extractor.Models.Configuration;
 using System;
+using Theradex.ODS.Models;
+using Org.BouncyCastle.Crypto.Prng;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Extension.Methods;
 
 namespace Theradex.ODS.Extractor.Services
 {
@@ -26,7 +30,7 @@ namespace Theradex.ODS.Extractor.Services
 
         private async Task<bool> SaveData(string response, string tableName, string fileName)
         {
-            if (_appSettings.ArchiveBucket.NotNullAndNotEmpty())
+            if(_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
                 var key = $"{_appSettings.Env}/Extractor/Data/{tableName}/{fileName}";
 
@@ -89,10 +93,6 @@ namespace Theradex.ODS.Extractor.Services
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully got data from Rave; {resource};");
 
-                    var fileName = $"{startDate:yyyy-MM-ddTHH:mm:ss}-{endDate:yyyy-MM-ddTHH:mm:ss}-{pageNumber}";
-
-                    var isSaveSuccess = await SaveData(response.Content, tableName, fileName);
-
                     return true;
                 }
                 else
@@ -118,11 +118,9 @@ namespace Theradex.ODS.Extractor.Services
             {
                 var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) , MaxTimeout= _rwsSettings.TimeoutInSecs.ConvertSecsToMs()});
 
-
                 var request = new RestRequest(_rwsSettings.RWSServer + resource)
                 {
                     Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs(),
-
                 };
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Rave Timeout (milliseconds): {request.Timeout}; {resource};");
@@ -135,20 +133,20 @@ namespace Theradex.ODS.Extractor.Services
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully got data from Rave; {resource};");
 
-                    var fileName = responseDataFileNameWithExtensionRAW;
-
-                    var isSaveSuccess = await SaveData(response.Content, tableName, fileName);
+                    var isSaveSuccess = await SaveData(response.Content, tableName, responseDataFileNameWithExtensionRAW);
 
                     // Write the response to a file
-                    await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW, response != null ? response.Content : string.Empty);
+                    //await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW, response != null ? response.Content : string.Empty);
 
                     return response;
                 }
                 else
                 {
                     _logger.LogError($"TraceId:{_appSettings.TraceId}; Failed getting data from Rave; {resource};");
+
                     // Write the response to a file
-                    await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW.Replace("json", "_ERROR.json"), response != null ? response.Content : string.Empty);
+                    //await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW.Replace("json", "_ERROR.json"), response != null ? response.Content : string.Empty);
+
                     return response;
                 }
             }
@@ -158,6 +156,5 @@ namespace Theradex.ODS.Extractor.Services
             }
             return null;
         }
-
     }
 }

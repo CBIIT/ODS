@@ -47,22 +47,20 @@ namespace Theradex.ODS.Extractor
                 return null;
             }
 
-            if (args.Length < 5)
+            if (args.Length < 3)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; 5 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; 3 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
 
                 return null;
             }
 
-            var extractorType = args[0];
-            var startDate = args[1];
-            var endDate = args[2];
-            var tableName = args[3];
-            var count = args[4];
+            var extractorType = args[0];           
+            var tableName = args[1];
+            var env = args[2];
 
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; startDate {startDate}; endDate {endDate}; tableName {tableName}; count {count};");
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; tableName {tableName}; env {env};");
 
-            if (extractorType.IsNullOrEmpty() || startDate.IsNullOrEmpty() || endDate.IsNullOrEmpty() || tableName.IsNullOrEmpty() || count.IsNullOrEmpty())
+            if (extractorType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; One or more execution Parameters are empty; Aborting.");
 
@@ -78,34 +76,9 @@ namespace Theradex.ODS.Extractor
                 return null;
             }
 
-            isValid = int.TryParse(count, out int count1);
+            _appSettings.Env = env;
 
-            if (!isValid)
-            {
-                _logger.LogWarning($"TraceId:{_appSettings.TraceId}; count {count} not valid; Defaulting.");
-                count1 = INPUT_COUNT;
-            }
-            else if (count1 <= 0) { _logger.LogWarning($"TraceId:{_appSettings.TraceId}; count {count} <= 0; Defaulting.");  count1 = INPUT_COUNT; }
-
-            isValid = DateTime.TryParse(startDate, out DateTime startDate1);
-
-            if (!isValid)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; startDate {startDate} not valid; Aborting.");
-
-                return null;
-            }
-
-            isValid = DateTime.TryParse(endDate, out DateTime endDate1);
-
-            if (!isValid)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; endDate {endDate} not valid; Aborting.");
-
-                return null;
-            }
-
-            return new ExtractorInput { Count = count1, StartDate = startDate1, EndDate = endDate1, TableName = tableName, ExtractorType = extractorTypeToRun };
+            return new ExtractorInput { TableName = tableName, ExtractorType = extractorTypeToRun };
         }
 
         public async Task RunAsync(string[] args)
@@ -131,13 +104,11 @@ namespace Theradex.ODS.Extractor
                     return;
                 }
 
-                //_appSettings.CurrentArchiveFolder = $"{extractorInput.TableName}";
-
                 var startTime = DateTime.Now;
 
                 var isSuccess = await processor.ProcessAsync(extractorInput);
 
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction;");
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction; TimeTaken: {DateTime.Now.Subtract(startTime).TotalMinutes} mins");
 
             }
             catch (Exception ex)
