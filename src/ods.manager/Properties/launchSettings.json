@@ -1,13 +1,21 @@
 {
   "profiles": {
-    "ods.manager": {
+    "devnci": {
       "commandName": "Project",
-      "commandLineArgs": "ODSManager 2020-09-08T00:00:00 2020-09-08T01:00:00 SITES 0",
+      "commandLineArgs": "ODSManager EXTERNALUSERS dev",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "ODSExtractorEnvironment": "dev-nci"
+        "ODSEnvironment": "dev-nci"
       },
-      "sqlDebugging": false
+      "distributionName": ""
+    },
+    "local": {
+      "commandName": "Project",
+      "commandLineArgs": "ODSManager FOLDERS dev",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSEnvironment": "local-stack"
+      }
     }
   }
 }

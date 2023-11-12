@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Theradex.ODS.Models;
 
 namespace Theradex.ODS.Manager.Interfaces
 {
@@ -34,6 +35,15 @@ namespace Theradex.ODS.Manager.Interfaces
         Task<T> GetByTableNameAndIdAsync(string tableName, int Id);
         Task<List<T>> HasActiveJobsAsync(string tableName);
         List<T> HasActiveJobs(string tableName);
+        BatchRunControl GetByLastExtractionInfo(string tableName);
+        Task<T> GetByLastExtractionInfoAsync(string tableName);
+        BatchRunControl GetByLastExtractionInfoAfter(string tableName,DateTime input);
+        Task<T> GetByLastExtractionInfoAfterAsync(string tableName,DateTime input);
+    }
+    public interface IManagerTableInfoRepository<T> : ODSNpgsqlLogger<T>
+    {
+
+
     }
 }
 

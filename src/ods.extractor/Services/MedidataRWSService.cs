@@ -70,6 +70,7 @@ namespace Theradex.ODS.Extractor.Services
             return true;
         }
 
+
         public async Task<bool> GetData(DateTime startDate, DateTime endDate, string tableName, int pageNumber, int pageSize)
         {
             var resource = $"/RaveWebServices/datasets/ThxExtracts2.json?PageSize={pageSize}&PageNumber={pageNumber}&StartDate={startDate:yyyy-MM-ddTHH:mm:ss}&EndDate={endDate:yyyy-MM-ddTHH:mm:ss}&TableName={tableName}";

@@ -17,8 +17,9 @@ namespace Theradex.ODS.Manager
         private readonly RWSSettings _rwsSettings;
         private readonly EmailSettings _emailSettings;
         private readonly IAWSCoreHelper _awsCoreHelper;
-        private readonly Func<ExtractorTypeEnum, IProcessor> _processServiceResolver;
+        private readonly Func<ManagerTypeEnum, IProcessor> _processServiceResolver;
         private readonly IConfigManager _configManager;
+        private const int INPUT_COUNT = 50000;
 
         public App(ILogger<App> logger,
             IOptions<AppSettings> appOptions,
@@ -26,7 +27,7 @@ namespace Theradex.ODS.Manager
             IOptions<EmailSettings> emailOptions,
             IAWSCoreHelper awsCoreHelper,
             IConfigManager configManager,
-            Func<ExtractorTypeEnum, IProcessor> processServiceResolver)
+            Func<ManagerTypeEnum, IProcessor> processServiceResolver)
         {
             _logger = logger;
             _appSettings = appOptions.Value;
@@ -37,7 +38,7 @@ namespace Theradex.ODS.Manager
             _processServiceResolver = processServiceResolver;
         }
 
-        private ExtractorInput? ValidateAndParseArguments(string[] args)
+        private ManagerInput? ValidateAndParseArguments(string[] args)
         {
             if (args.Length == 0)
             {
@@ -45,66 +46,39 @@ namespace Theradex.ODS.Manager
 
                 return null;
             }
-            
-            if (args.Length < 5)
+
+            if (args.Length < 3)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; 5 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; 3 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
 
                 return null;
             }
 
-            var extractorType = args[0];
-            var startDate = args[1];
-            var endDate = args[2];
-            var tableName = args[3];
-            var count = args[4];
+            var ManagerType = args[0];
+            var tableName = args[1];
+            var env = args[2];
 
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; startDate {startDate}; endDate {endDate}; tableName {tableName}; count {count};");
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: ManagerType {ManagerType}; tableName {tableName}; env {env};");
 
-            if (extractorType.IsNullOrEmpty() || startDate.IsNullOrEmpty() || endDate.IsNullOrEmpty() || tableName.IsNullOrEmpty() || count.IsNullOrEmpty())
+            if (ManagerType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; One or more execution Parameters are empty; Aborting.");
 
                 return null;
             }
 
-            var isValid = Enum.TryParse(extractorType, true, out ExtractorTypeEnum extractorTypeToRun);
+            var isValid = Enum.TryParse(ManagerType, true, out ManagerTypeEnum ManagerTypeToRun);
 
             if (!isValid)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; extractorType {extractorType} not valid; Aborting.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; ManagerType {ManagerType} not valid; Aborting.");
 
                 return null;
             }
 
-            isValid = int.TryParse(count, out int count1);
+            _appSettings.Env = env;
 
-            if (!isValid)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; count {count} not valid; Aborting.");
-
-                return null;
-            }
-
-            isValid = DateTime.TryParse(startDate, out DateTime startDate1);
-
-            if (!isValid)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; startDate {startDate} not valid; Aborting.");
-
-                return null;
-            }
-
-            isValid = DateTime.TryParse(endDate, out DateTime endDate1);
-
-            if (!isValid)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; endDate {endDate} not valid; Aborting.");
-
-                return null;
-            }
-
-            return new ExtractorInput { StartDate = startDate1, EndDate = endDate1, TableName = tableName};
+            return new ManagerInput { TableName = tableName, ManagerType = ManagerTypeToRun };
         }
 
         public async Task RunAsync(string[] args)
@@ -117,26 +91,24 @@ namespace Theradex.ODS.Manager
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting...");
 
-                var extractorInput = ValidateAndParseArguments(args);
+                var ManagerInput = ValidateAndParseArguments(args);
 
-                if (extractorInput == null) return;
+                if (ManagerInput == null) return;
 
-                var processor = _processServiceResolver(extractorInput.ExtractorType);
+                var processor = _processServiceResolver(ManagerInput.ManagerType);
 
                 if (processor == null)
                 {
-                    _logger.LogError($"TraceId:{_appSettings.TraceId}; No Processer configured for  extractorType {extractorInput.ExtractorType};");
+                    _logger.LogError($"TraceId:{_appSettings.TraceId}; No Processer configured for  ManagerType {ManagerInput.ManagerType};");
 
                     return;
                 }
 
-                //_appSettings.CurrentArchiveFolder = $"{extractorInput.TableName}";
-
                 var startTime = DateTime.Now;
 
-                var isSuccess = await processor.ProcessAsync(extractorInput);             
+                var isSuccess = await processor.ProcessAsync(ManagerInput);
 
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction;");
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction; TimeTaken: {DateTime.Now.Subtract(startTime).TotalMinutes} mins");
 
             }
             catch (Exception ex)

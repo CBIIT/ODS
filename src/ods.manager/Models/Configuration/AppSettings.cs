@@ -8,9 +8,11 @@ namespace Theradex.ODS.Manager.Models.Configuration
 {
     public class AppSettings
     {
-        public string CurrentArchiveFolder { get; set; }
+        public string LocalArchivePath { get; set; }
 
         public string TraceId { get; set; }
+
+        public string Env { get; set; }
 
         public string ArchiveBucket { get; set; }
     }

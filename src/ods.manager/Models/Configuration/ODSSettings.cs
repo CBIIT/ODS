@@ -13,5 +13,7 @@ namespace Theradex.ODS.Manager.Models.Configuration
         public string Username { get; set; }
         public string Password { get; set; }
         public int TimeoutInSecs { get; set; }
+
+        public string Database { get; set; }
     }
 }
