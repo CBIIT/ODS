@@ -6,7 +6,10 @@ using Theradex.ODS.Manager.Helpers.Extensions;
 using Theradex.ODS.Manager.Interfaces;
 using Theradex.ODS.Manager.Models.Configuration;
 using System;
-using Amazon.Auth.AccessControlPolicy;
+using Theradex.ODS.Models;
+using Org.BouncyCastle.Crypto.Prng;
+using Microsoft.AspNetCore.Mvc.ModelBinding.Validation;
+using Extension.Methods;
 
 namespace Theradex.ODS.Manager.Services
 {
@@ -27,22 +30,44 @@ namespace Theradex.ODS.Manager.Services
 
         private async Task<bool> SaveData(string response, string tableName, string fileName)
         {
-            var path = string.Format($"{tableName}/{fileName}.xml");
-
-            var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, path, response);
-
-            if (!isSuccess)
+            if(_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {path}");
+                var key = $"{_appSettings.Env}/Manager/Data/{tableName}/{fileName}";
+
+                var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
+
+                if (!isSuccess)
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {key}");
+                }
+                else
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {key}");
+                }
+            }
+
+            if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                var basePath = Path.Combine(_appSettings.LocalArchivePath, _appSettings.Env, "Manager", "Data", tableName);
+
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                var path = Path.Combine(basePath, fileName);
+
+                await File.WriteAllTextAsync(path, response);
+            }
+
+            if (!_appSettings.ArchiveBucket.NotNullAndNotEmpty() && !_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; No ArchiveBucket or LocalArchivePath configured;");
 
                 return false;
             }
-            else
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {path}");
 
-                return true;
-            }
+            return true;
         }
 
         public async Task<bool> GetData(DateTime startDate, DateTime endDate, string tableName, int pageNumber, int pageSize)
@@ -67,10 +92,6 @@ namespace Theradex.ODS.Manager.Services
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully got data from Rave; {resource};");
 
-                    var fileName = $"{startDate:yyyy-MM-ddTHH:mm:ss}-{endDate:yyyy-MM-ddTHH:mm:ss}-{pageNumber}";
-
-                    var isSaveSuccess = await SaveData(response.Content, tableName, fileName);
-
                     return true;
                 }
                 else
@@ -94,13 +115,14 @@ namespace Theradex.ODS.Manager.Services
 
             try
             {
-                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) });
-
+                var client = new RestClient(new RestClientOptions { Authenticator = new HttpBasicAuthenticator(_rwsSettings.RWSUserName, _rwsSettings.RWSPassword) , MaxTimeout= _rwsSettings.TimeoutInSecs.ConvertSecsToMs()});
 
                 var request = new RestRequest(_rwsSettings.RWSServer + resource)
                 {
-                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs()
+                    Timeout = _rwsSettings.TimeoutInSecs.ConvertSecsToMs(),
                 };
+
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Rave Timeout (milliseconds): {request.Timeout}; {resource};");
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Getting data from Rave; {resource};");
 
@@ -110,15 +132,19 @@ namespace Theradex.ODS.Manager.Services
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully got data from Rave; {resource};");
 
-                    var fileName = responseDataFileNameWithExtensionRAW;
+                    var isSaveSuccess = await SaveData(response.Content, tableName, responseDataFileNameWithExtensionRAW);
 
-                    var isSaveSuccess = await SaveData(response.Content, tableName, fileName);
+                    // Write the response to a file
+                    //await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW, response != null ? response.Content : string.Empty);
 
                     return response;
                 }
                 else
                 {
                     _logger.LogError($"TraceId:{_appSettings.TraceId}; Failed getting data from Rave; {resource};");
+
+                    // Write the response to a file
+                    //await File.WriteAllTextAsync(responseDataFileNameWithExtensionRAW.Replace("json", "_ERROR.json"), response != null ? response.Content : string.Empty);
 
                     return response;
                 }
@@ -129,6 +155,5 @@ namespace Theradex.ODS.Manager.Services
             }
             return null;
         }
-
     }
 }

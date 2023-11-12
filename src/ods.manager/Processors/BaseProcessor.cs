@@ -15,12 +15,14 @@ namespace Theradex.ODS.Manager.Processors
         protected readonly IAWSCoreHelper _awsCoreHelper;
         protected readonly IAmazonS3 _s3Client;
         protected readonly IBatchRunControlRepository<BatchRunControl> _odsRepository;
+        protected readonly IManagerTableInfoRepository<BatchRunControl> _odsManagerRepository;
 
         public BaseProcessor(IMedidataRWSService medidateRWSService,
             ILogger<BaseProcessor> logger,
             IOptions<AppSettings> appOptions,          
             IAWSCoreHelper awsCoreHelper,
             IBatchRunControlRepository<BatchRunControl> odsRepository,
+            IManagerTableInfoRepository<BatchRunControl> odsManagerRepository,
             IAmazonS3 s3Client)
         {
             _logger = logger;
@@ -29,6 +31,7 @@ namespace Theradex.ODS.Manager.Processors
             _awsCoreHelper = awsCoreHelper;
             _s3Client = s3Client;
             _odsRepository = odsRepository;
+            _odsManagerRepository = odsManagerRepository;
         }
     }
 }

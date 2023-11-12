@@ -10,6 +10,6 @@ namespace Theradex.ODS.Manager.Interfaces
 {
     public interface IProcessor
     {
-        Task<bool> ProcessAsync(ExtractorInput exInput);
+        Task<bool> ProcessAsync(ManagerInput exInput);
     }
 }

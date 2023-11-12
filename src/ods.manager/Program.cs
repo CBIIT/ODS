@@ -1,17 +1,35 @@
-﻿using Amazon.S3;
+﻿using Amazon;
+using Amazon.DynamoDBv2;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon.Runtime;
+using Amazon.Runtime.CredentialManagement;
+using Amazon.S3;
+using LocalStack.Client.Extensions;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
+using NLog;
+using NLog.Extensions.Logging;
+using Npgsql;
+using Amazon;
+using Amazon.Extensions.NETCore.Setup;
+using Amazon.Runtime;
+using Amazon.S3;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using NLog.Extensions.Logging;
+using Npgsql;
 using Theradex.ODS.Manager.Configuration;
-using Theradex.ODS.Manager.Helpers;
 using Theradex.ODS.Manager.Enums;
+using Theradex.ODS.Manager.Helpers;
 using Theradex.ODS.Manager.Interfaces;
 using Theradex.ODS.Manager.Models.Configuration;
 using Theradex.ODS.Manager.Processors;
+using Theradex.ODS.Manager.Repositories;
 using Theradex.ODS.Manager.Services;
 using Theradex.ODS.Models;
-using Theradex.ODS.Manager.Repositories;
 
 namespace Theradex.ODS.Manager
 {
@@ -32,67 +50,123 @@ namespace Theradex.ODS.Manager
             var environmentName = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
 
             var host = Host.CreateDefaultBuilder(args)
-                .ConfigureServices((context, services) =>
-                {
-                    services.AddTransient<IApp, App>();
+             .ConfigureServices((context, services) =>
+             {
+                 services.AddLocalStack(context.Configuration);
+                 services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
 
-                    services.AddDefaultAWSOptions(context.Configuration.GetAWSOptions());
+                 if (environmentName.ToLower() == "local")
+                 {
+                     services.AddSingleton<IAmazonDynamoDB>(sp =>
+                     {
+                         var clientConfig = new AmazonDynamoDBConfig
+                         {
+                             ServiceURL = "http://localhost:4566",
+                             UseHttp = true
+                         };
+                         return new AmazonDynamoDBClient(new BasicAWSCredentials("testkey", "testsecret"), clientConfig);
+                     });
 
-                    services.AddAWSService<IAmazonS3>();
+                     Console.WriteLine("Added LocalStack DynamoDb");
 
-                    services.AddTransient<IAWSCoreHelper, AWSCoreHelper>();
+                     var amazonS3 = new AmazonS3Client(new BasicAWSCredentials("testkey", "testsecret"), new AmazonS3Config
+                     {
+                         RegionEndpoint = RegionEndpoint.USEast1,
+                         ServiceURL = "http://localhost:4566",
+                         ForcePathStyle = true,
+                         UseHttp = true,
+                         AuthenticationRegion = "us-east-1",
+                     });
 
-                    services.AddTransient<IMedidataRWSService, MedidataRWSService>();
+                     services.AddSingleton(typeof(IAmazonS3), provider => amazonS3);
 
-                    services.AddTransient<IBatchRunControlRepository<BatchRunControl>, BatchRunControlRepository>();
+                     Console.WriteLine("Added LocalStack S3");
+                 }
+                 else
+                 {
+                     services.AddAWSService<IAmazonDynamoDB>();
+                     services.AddAWSService<IAmazonS3>();
+                 }
 
-                    services.AddSingleton<IConfigManager, ConfigManager>();
+                 services.AddTransient<IAWSCoreHelper, AWSCoreHelper>();
 
-                    services.AddScoped<ODSManager_Processor>();
+                 services.AddTransient<IMedidataRWSService, MedidataRWSService>();
 
-                    services.AddTransient<Func<ExtractorTypeEnum, IProcessor>>(serviceProvider =>
-                        (ext) =>
-                        {
-                            if (ext == ExtractorTypeEnum.ODSManager)
-                                return serviceProvider.GetService<ODSManager_Processor>();
-                            else
-                                return null;
-                        });
+                 services.AddSingleton<IBatchRunControlRepository<BatchRunControl>, BatchRunControlRepository>();
 
-                    services.AddLogging(loggingBuilder =>
-                    {
-                        loggingBuilder.AddNLog("nlog.config");
-                    });
+                 services.AddSingleton<IManagerTableInfoRepository<BatchRunControl>, ManagerTableInfoRepository>();
 
-                    services.AddOptions();
+                 services.AddSingleton<IConfigManager, ConfigManager>();
 
-                    var configurationRoot = context.Configuration;
+                 services.AddScoped<ODSManager_Processor>();
 
-                    services.Configure<AppSettings>(configurationRoot.GetSection(nameof(AppSettings)));
+                 services.AddTransient<Func<ManagerTypeEnum, IProcessor>>(serviceProvider =>
+                     (ext) =>
+                     {
+                         if (ext == ManagerTypeEnum.ODSManager)
+                             return serviceProvider.GetService<ODSManager_Processor>();
+                         else
+                             return null;
+                     });
 
-                    services.Configure<RWSSettings>(configurationRoot.GetSection(nameof(RWSSettings)));
+                 services.AddLogging(loggingBuilder =>
+                 {
+                     loggingBuilder.AddNLog("nlog.config");
+                 });
 
-                    services.Configure<EmailSettings>(configurationRoot.GetSection(nameof(EmailSettings)));
+                 var loggerFactory = Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddNLog("nlog.config"));
 
-                    services.Configure<ODSSettings>(configurationRoot.GetSection(nameof(ODSSettings)));
+                 NpgsqlLoggingConfiguration.InitializeLogging(loggerFactory, parameterLoggingEnabled: true);
 
-                })
-                .ConfigureAppConfiguration((hostingContext, configuration) =>
-                {
-                    //configuration.AddSystemsManager(configSource =>
-                    //{
-                    //    var env = Environment.GetEnvironmentVariable("ODSManagerEnvironment");
-                    //    configSource.Path = $"/{env}/app/odsmanager/";
-                    //    configSource.Optional = false;
-                    //});
+                 LogManager.ReconfigExistingLoggers();
 
-                    IHostEnvironment env = hostingContext.HostingEnvironment;
-                    IConfigurationRoot configurationRoot = configuration.Build();
+                 services.AddOptions();
 
-                    configuration.SetBasePath(Directory.GetCurrentDirectory());
-                    configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-                    configuration.AddEnvironmentVariables();
-                });
+                 var configurationRoot = context.Configuration;
+
+                 services.Configure<AppSettings>(configurationRoot.GetSection(nameof(AppSettings)));
+
+                 services.Configure<RWSSettings>(configurationRoot.GetSection(nameof(RWSSettings)));
+
+                 services.Configure<EmailSettings>(configurationRoot.GetSection(nameof(EmailSettings)));
+
+                 services.Configure<ODSSettings>(configurationRoot.GetSection(nameof(ODSSettings)));
+             })
+             .ConfigureAppConfiguration((hostingContext, configuration) =>
+             {
+                 var env_ = Environment.GetEnvironmentVariable("ODSEnvironment");
+
+                 if (environmentName.ToLower() == "local")
+                 {
+                     configuration.AddSystemsManager($"/{env_}/app/odsManager/", new AWSOptions
+                     {
+                         DefaultClientConfig =
+                            {
+                                ServiceURL = "http://localhost:4566",
+                                UseHttp = true
+                            },
+                         Credentials = new BasicAWSCredentials("testkey", "testsecret")
+                     });
+
+                     Console.WriteLine("Added LocalStack SSM");
+                 }
+                 else
+                 {
+                     configuration.AddSystemsManager(configSource =>
+                     {
+                         var env = Environment.GetEnvironmentVariable("ODSManagerEnvironment");
+                         configSource.Path = $"/{env}/app/odsManager/";
+                         configSource.Optional = false;
+                     });
+                 }
+
+                 IHostEnvironment env = hostingContext.HostingEnvironment;
+                 IConfigurationRoot configurationRoot = configuration.Build();
+
+                 configuration.SetBasePath(Directory.GetCurrentDirectory());
+                 configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
+                 configuration.AddEnvironmentVariables();
+             });
 
             return host;
         }
