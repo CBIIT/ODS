@@ -5,7 +5,7 @@ services:
     container_name: localstack
     image: localstack/localstack:latest
     environment:
-      - SERVICES=s3:4572,dynamodb:4569,sqs:4577
+      - SERVICES=s3:4572,dynamodb:4569,sqs:4577,ssm:4583
       - AWS_ACCESS_KEY_ID=testkey
       - AWS_SECRET_ACCESS_KEY=testsecret
     ports:
@@ -14,6 +14,7 @@ services:
       - "4569:4569"   # DynamoDB port
       - "4576:4576"   # SQS port
       - "9999:8080"   # LocalStack web UI
+      - "4583:4583"   # ssm  
     volumes:
       - C:\localstack\data:/localstack/data
 volumes:

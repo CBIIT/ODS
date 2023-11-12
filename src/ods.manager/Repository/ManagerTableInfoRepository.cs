@@ -31,20 +31,23 @@ namespace Theradex.ODS.Manager.Repositories
     {
         private readonly ILogger<MedidataRWSService> _logger;
         private readonly AppSettings _appSettings;
+        private readonly ODSSettings _odsSettings;
         protected readonly IAWSCoreHelper _awsCoreHelper;
-        //private readonly string defalutConnectionString = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
-        private readonly string defalutConnectionString = "Host=ods.cluster-cgntten8b01g.us-west-1.rds.amazonaws.com;Username=postgres;Password=Password0001;Database=ods;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+        private readonly string defalutConnectionString = "Host={0};Username={1};Password={2};Database={3};Port={4};Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
         private readonly string CONNECTION_STRING;
 
-        public ManagerTableInfoRepository(ILogger<MedidataRWSService> logger, IOptions<AppSettings> appOptions, IAWSCoreHelper awsCoreHelper)
+        public ManagerTableInfoRepository(ILogger<MedidataRWSService> logger, IOptions<AppSettings> appOptions, IOptions<ODSSettings> odsOptions, IAWSCoreHelper awsCoreHelper)
         {
             _logger = logger;
             _appSettings = appOptions.Value;
+            _odsSettings = odsOptions.Value;
             _awsCoreHelper = awsCoreHelper;
-            CONNECTION_STRING = defalutConnectionString;
 
+            CONNECTION_STRING = string.Format(defalutConnectionString, _odsSettings.Host, _odsSettings.Username, _odsSettings.Password, _odsSettings.Database, _odsSettings.Port);
+            //CONNECTION_STRING = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+
+            _logger.LogInformation($"CONNECTION_STRING: {CONNECTION_STRING}");
         }
-
 
         public void Add(BatchRunControl entity)
         {
@@ -357,7 +360,7 @@ namespace Theradex.ODS.Manager.Repositories
             {
                 connection.Open();
                 //using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT id, table_name, api_startdate, api_enddate, min_date, max_date, table_row_count,payload, created, updated FROM public.odsmanager_table_matadata  where table_name = 'CONFIGURATION' order by id asc ", connection))
-                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT id, table_name, api_startdate, api_enddate, min_date, max_date, table_row_count,payload, created, updated FROM public.odsmanager_table_matadata order by id asc ", connection))
+                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT id, table_name, api_startdate, api_enddate, min_date, max_date, table_row_count,payload, created, updated FROM public.odsmanager_table_matadata WHERE min_date is not null order by id asc ", connection))
                 using (NpgsqlDataReader reader = await cmd.ExecuteReaderAsync())
                 {
                     while (reader.Read())

@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace Theradex.ODS.Manager.Enums
 {
-    public enum ExtractorTypeEnum
+    public enum ManagerTypeEnum
     {
         ODSManager
     }

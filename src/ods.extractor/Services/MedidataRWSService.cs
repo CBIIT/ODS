@@ -26,29 +26,46 @@ namespace Theradex.ODS.Extractor.Services
 
         private async Task<bool> SaveData(string response, string tableName, string fileName)
         {
-            var path = string.Format($"{tableName}/{fileName}.xml");
-
-            if (string.IsNullOrEmpty(_appSettings.ArchiveBucket))
+            if (_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed as S3 Bucket was not configured; Path: {path}");
+                var key = $"{_appSettings.Env}/Extractor/Data/{tableName}/{fileName}";
+
+                var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
+
+                if (!isSuccess)
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {key}");
+                }
+                else
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {key}");
+                }
+            }
+
+            if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                var basePath = Path.Combine(_appSettings.LocalArchivePath, _appSettings.Env, "Extractor", "Data", tableName);
+
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                var path = Path.Combine(basePath, fileName);
+
+                await File.WriteAllTextAsync(path, response);
+            }
+
+            if (!_appSettings.ArchiveBucket.NotNullAndNotEmpty() && !_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; No ArchiveBucket or LocalArchivePath configured;");
+
                 return false;
             }
 
-            var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, path, response);
-
-            if (!isSuccess)
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {path}");
-
-                return false;
-            }
-            else
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {path}");
-
-                return true;
-            }
+            return true;
         }
+
 
         public async Task<bool> GetData(DateTime startDate, DateTime endDate, string tableName, int pageNumber, int pageSize)
         {
