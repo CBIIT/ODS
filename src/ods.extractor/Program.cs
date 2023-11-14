@@ -131,7 +131,8 @@ namespace Theradex.ODS.Extractor
                          DefaultClientConfig =
                             {
                                 ServiceURL = "http://localhost:4566",
-                                UseHttp = true
+                                UseHttp = true,
+                                AuthenticationRegion = "us-east-1",
                             },
                          Credentials = new BasicAWSCredentials("testkey", "testsecret")
                      });
