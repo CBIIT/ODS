@@ -22,5 +22,9 @@ namespace Theradex.ODS.Extractor.Interfaces
         Task<bool> SendEmailRawAsync(string fromAddress, List<string> toAddresses, string subject, string body);
 
         Task<bool> SendEmailRawWithAttachmentAsync(string bucketName, List<string> objectKeys, string fromAddress, List<string> toAddresses, string subject, string body);
+
+        Task<bool> DeleteObjectFromBucketAsync(string bucketName, string objectKey);
+
+        Task<bool> IsKeyExistsAsync(string bucketName, string objectKey);
     }
 }

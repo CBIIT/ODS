@@ -75,19 +75,19 @@ namespace Theradex.ODS.Extractor.Helpers
                     Key = objectKey
                 };
 
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId};Deleting object ({objectKey}) from bucket ({bucketName}).");
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Deleting object ({objectKey}) from bucket ({bucketName}).");
 
                 var response = await _s3Client.DeleteObjectAsync(deleteObjectRequest);
 
-                if (response.HttpStatusCode == System.Net.HttpStatusCode.OK)
+                if (response.HttpStatusCode == System.Net.HttpStatusCode.NoContent)
                 {
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId};Object ({objectKey}) deleted from bucket ({bucketName}) successfully.");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Object ({objectKey}) deleted from bucket ({bucketName}) successfully.");
 
                     return true;
                 }
                 else
                 {
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId};Could not delete ({objectKey}) from bucket ({bucketName}).");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Could not delete ({objectKey}) from bucket ({bucketName}); ErrorCode: {response.HttpStatusCode}");
 
                     return false;
                 }
@@ -95,7 +95,7 @@ namespace Theradex.ODS.Extractor.Helpers
             }
             catch (AmazonS3Exception ex)
             {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId};Error deleting Object ({objectKey}) from bucket ({bucketName}): {ex}");
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Error deleting Object ({objectKey}) from bucket ({bucketName}): {ex}");
 
                 return false;
             }
@@ -115,6 +115,22 @@ namespace Theradex.ODS.Extractor.Helpers
             }
         }
 
+        public async Task<bool> IsKeyExistsAsync(string bucketName, string objectKey)
+        {
+            try
+            {
+                var response = await _s3Client.GetObjectMetadataAsync(bucketName, objectKey);
+
+                return true;
+            }
+            catch (AmazonS3Exception ex)
+            {
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Object {objectKey} not exists in the bucket {bucketName}; ErrorCode: {ex.ErrorCode}");
+
+                return false;
+            }
+        }
+
         public async Task<bool> UploadDataAsync(string bucketName, string objectKey, string content)
         {
             try
@@ -123,27 +139,27 @@ namespace Theradex.ODS.Extractor.Helpers
                 {
                     BucketName = bucketName,
                     Key = objectKey,
-                    ContentBody = content
+                    ContentBody = content                    
                 };
 
                 var response = await _s3Client.PutObjectAsync(request);
 
                 if (response.HttpStatusCode == System.Net.HttpStatusCode.OK)
                 {
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId};Successfully uploaded Object ({objectKey}) to bucket ({bucketName}).");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Successfully uploaded Object ({objectKey}) to bucket ({bucketName}).");
 
                     return true;
                 }
                 else
                 {
-                    _logger.LogInformation($"TraceId:{_appSettings.TraceId};Could not upload Object ({objectKey}) to bucket ({bucketName}).");
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Could not upload Object ({objectKey}) to bucket ({bucketName}).");
 
                     return false;
                 }
             }
             catch (Exception ex)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId};Error uploading the object ({objectKey}) to bucket ({bucketName}): {ex}");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; Error uploading the object ({objectKey}) to bucket ({bucketName}): {ex}");
 
                 return false;
             }

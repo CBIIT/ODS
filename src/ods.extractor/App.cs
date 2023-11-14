@@ -83,6 +83,7 @@ namespace Theradex.ODS.Extractor
 
         public async Task RunAsync(string[] args)
         {
+            ExtractorInput? extractorInput = null;
             try
             {
                 _appSettings.TraceId = CustomerExtensions.GetUniqueIdentifier();
@@ -91,7 +92,7 @@ namespace Theradex.ODS.Extractor
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Starting...");
 
-                var extractorInput = ValidateAndParseArguments(args);
+                extractorInput = ValidateAndParseArguments(args);
 
                 if (extractorInput == null) return;
 
@@ -99,21 +100,84 @@ namespace Theradex.ODS.Extractor
 
                 if (processor == null)
                 {
-                    _logger.LogError($"TraceId:{_appSettings.TraceId}; No Processer configured for  extractorType {extractorInput.ExtractorType};");
+                    _logger.LogError($"TraceId:{_appSettings.TraceId}; No Processer configured for  extractorType {extractorInput.ExtractorType}; Aborting;");
 
                     return;
                 }
 
+                var isLockAcquired = await AcquireLockAsync(extractorInput);
+
+                if(!isLockAcquired)
+                {
+                    _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Lock not acquired; TableName: {extractorInput.TableName}; Aborting;");
+
+                    return;
+                }
+
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Lock acquired; TableName: {extractorInput.TableName}; Proceeding;");
+
                 var startTime = DateTime.Now;
 
-                var isSuccess = await processor.ProcessAsync(extractorInput);
+                var isSuccess = await processor.ProcessAsync(extractorInput);                
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Completed Extraction; TimeTaken: {DateTime.Now.Subtract(startTime).TotalMinutes} mins");
 
+                await ReleaseLockAsync(extractorInput);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; Exception in RunAsync: {ex}");
+
+                await ReleaseLockAsync(extractorInput);
+            }            
+        }
+
+        public async Task<bool> AcquireLockAsync(ExtractorInput extractorInput)
+        {
+            var key = $"{_appSettings.Env}/Extractor/Lock/{extractorInput.TableName}_lock";
+            try
+            {
+                var isKeyExists = await _awsCoreHelper.IsKeyExistsAsync(_appSettings.ArchiveBucket, key);
+
+                if (isKeyExists) //Lock file already exists.
+                {
+                    _logger.LogWarning($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Lock file {key} already exists;");
+
+                    return false;
+                }
+
+                var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, "Lock file content");
+
+                if(isSuccess) //Lock file successfully created.
+                {
+                    _logger.LogWarning($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Lock file {key} created;");
+                }
+
+                return isSuccess; 
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Lock file {key}; Exception in AcquireLockAsync; {ex};");
+
+                return false;
+            }
+        }
+
+        public async Task ReleaseLockAsync(ExtractorInput? extractorInput)
+        {
+            if (extractorInput == null)
+                return;
+
+            var key = $"{_appSettings.Env}/Extractor/Lock/{extractorInput.TableName}_lock";
+            try
+            {
+                var isSuccess = await _awsCoreHelper.DeleteObjectFromBucketAsync(_appSettings.ArchiveBucket, key);
+
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Unlocked successfully; Lock file {key} deleted;");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Lock file {key}; Exception in ReleaseLockAsync; {ex};");
             }
         }
     }
