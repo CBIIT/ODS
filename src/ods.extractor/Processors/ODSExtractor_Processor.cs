@@ -161,8 +161,8 @@ namespace Theradex.ODS.Extractor.Processors
             {
                 string responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "_RAW.json";
                 string responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + ".json";
-                string error_responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR_RAW.json";
-                string error_responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR.json";
+               // string error_responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR_RAW.json";
+               // string error_responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR.json";
 
                 try
                 {
@@ -221,7 +221,7 @@ namespace Theradex.ODS.Extractor.Processors
 
                                 totalPages = payloadReceived.TotalPages;
 
-                                await File.WriteAllTextAsync(responseDataFileNameWithExtension, json);
+                                await SaveData(json, odsData.TableName, responseDataFileNameWithExtension, false);
 
                                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; STARTED - Calling Save to Postgres database  [Table:{odsData.TableName}] " +
                                                         $"[StartDate:{odsData.StartDate}]" + $"[EndDate:{odsData.EndDate}] " + $"[URL:{odsData.URL}] " + $"[Query Counts :{payloadReceived.QueryCountofRows}] ");
@@ -243,11 +243,11 @@ namespace Theradex.ODS.Extractor.Processors
                 catch (HttpRequestException ex)
                 {
                     // Handle the exception
-                    await SaveData(ex.ToString(), batchRunControl.TableName, error_responseDataFileNameWithExtensionRAW);
-                    await SaveData(ex.ToString(), batchRunControl.TableName, error_responseDataFileNameWithExtension);
+                    await SaveData(ex.ToString(), batchRunControl.TableName, responseDataFileNameWithExtensionRAW, true);
+                    await SaveData(ex.ToString(), batchRunControl.TableName, responseDataFileNameWithExtension, true);
 
                     _logger.LogError($"TraceId:{_appSettings.TraceId}; Critical Error Occurred. {ex}");
-                    batchRunControl.ExtractedFileName = error_responseDataFileNameWithExtension;
+                    batchRunControl.ExtractedFileName = responseDataFileNameWithExtension;
                     batchRunControl.ErrorMessage = ex.ToString();
                     batchRunControl.Success = "FAILED";
                     await _odsRepository.CompletedErrorAsync(batchRunControl, ex.ToString());
@@ -275,11 +275,16 @@ namespace Theradex.ODS.Extractor.Processors
 
         }
 
-        private async Task<bool> SaveData(string response, string tableName, string fileName)
+        private async Task<bool> SaveData(string response, string tableName, string fileName, bool isError = false)
         {
+            if (isError)
+                fileName = $"{Path.GetFileNameWithoutExtension(fileName)}_ERROR{Path.GetExtension(fileName)}";
+            else
+                fileName = Path.GetFileName(fileName);
+
             if (_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                var key = $"odsextractor/{tableName}/{fileName}";
+                var key = isError ? $"{_appSettings.Env}/Extractor/Errors/{tableName}/{fileName}" : $"{_appSettings.Env}/Extractor/Data/{tableName}/{fileName}";
 
                 var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
 
@@ -295,7 +300,8 @@ namespace Theradex.ODS.Extractor.Processors
 
             if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
             {
-                var basePath = Path.Combine(_appSettings.LocalArchivePath, "odsextractor", tableName);
+                var basePath = isError ? Path.Combine(_appSettings.LocalArchivePath, _appSettings.Env, "Extractor", "Errors", tableName) 
+                                       : Path.Combine(_appSettings.LocalArchivePath, _appSettings.Env, "Extractor", "Data", tableName);
 
                 if (!Directory.Exists(basePath))
                 {

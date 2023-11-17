@@ -32,7 +32,7 @@ namespace Theradex.ODS.Extractor.Services
         {
             if(_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                var key = $"{_appSettings.Env}/Extractor/Data/{tableName}/{fileName}";
+                var key = $"{_appSettings.Env}/Extractor/Medidata/{tableName}/{fileName}";
 
                 var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
 
