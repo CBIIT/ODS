@@ -15,5 +15,22 @@ aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter 
 aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter --name "/local-stack/app/odsextractor/ODSSettings/Username" --type String --value "postgres" --overwrite
 aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter --name "/local-stack/app/odsextractor/ODSSettings/Password" --type String --value "Password0001" --overwrite
 aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter --name "/local-stack/app/odsextractor/ODSSettings/TimeoutInSecs" --type String --value "60" --overwrite
-aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter --name "/local-stack/app/odsextractor/ODSSettings/Database" --type String --value "postgres" --overwrite
+aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter --name "/local-stack/app/odsextractor/ODSSettings/Database" --type String --value "ods" --overwrite
+
+aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table --table-name odsmanager_table_metadata --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=10,WriteCapacityUnits=10
+aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table --table-name batch_run_control --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=10,WriteCapacityUnits=10
+
+aws  --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table \
+                                                                            --table-name ProductReview \
+                                                                            --attribute-definitions \
+                                                                                AttributeName=UserId,AttributeType=N \
+                                                                                AttributeName=ProductName,AttributeType=S \
+                                                                            --key-schema \
+                                                                                AttributeName=UserId,KeyType=HASH \
+                                                                                AttributeName=ProductName,KeyType=RANGE \
+                                                                            --provisioned-throughput \
+                                                                                ReadCapacityUnits=5,WriteCapacityUnits=5
+
+aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb list-tables
+
 pause

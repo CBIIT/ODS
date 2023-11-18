@@ -25,6 +25,8 @@ using Theradex.ODS.Extractor.Helpers.Extensions;
 using Theradex.ODS.Extractor.Services;
 using Theradex.ODS.Extractor.Models.Configuration;
 using Amazon.SimpleSystemsManagement.Model;
+using EfficientDynamoDb;
+using EfficientDynamoDb.Configs;
 
 namespace Theradex.ODS.Extractor
 {
