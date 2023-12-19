@@ -7,7 +7,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 namespace Theradex.ODS.Models
 {
 
-   [Serializable()]public class PayloadItem
+    [Serializable()]
+    public class PayloadItem
     {
         public string TableName { get; set; }
         public string MinDate { get; set; }
@@ -59,8 +60,8 @@ namespace Theradex.ODS.Models
             }
         }
 
-        public DateTime Start { get; set; } 
-        public DateTime End { get; set; } 
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
 
         public int Records { get; set; }
 

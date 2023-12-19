@@ -39,6 +39,10 @@ namespace Theradex.ODS.Manager.Interfaces
         Task<T> GetByLastExtractionInfoAsync(string tableName);
         BatchRunControl GetByLastExtractionInfoAfter(string tableName,DateTime input);
         Task<T> GetByLastExtractionInfoAfterAsync(string tableName,DateTime input);
+        Task<T> GetByMaxApiEndDateAsync(string tableName);
+        BatchRunControl GetByMaxApiEndDate(string tableName);
+
+
     }
     public interface IManagerTableInfoRepository<T> : ODSNpgsqlLogger<T>
     {

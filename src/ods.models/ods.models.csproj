@@ -9,6 +9,7 @@
 	<ItemGroup>
 		<PackageReference Include="AWS.Logger.NLog" Version="3.2.1" />
 		<PackageReference Include="Aws4RequestSigner" Version="1.0.3" />
+		<PackageReference Include="AWSSDK.DynamoDBv2" Version="3.7.300" />
 		<PackageReference Include="EntityFramework" Version="6.4.4" />
 		<PackageReference Include="Extension.Methods" Version="0.3.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="7.0.13" />

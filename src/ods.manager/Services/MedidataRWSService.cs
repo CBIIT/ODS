@@ -32,7 +32,7 @@ namespace Theradex.ODS.Manager.Services
         {
             if(_appSettings.ArchiveBucket.NotNullAndNotEmpty())
             {
-                var key = $"{_appSettings.Env}/Manager/Data/{tableName}/{fileName}";
+                var key = $"{_appSettings.Env}/Manager/Data/RaveResponse/{tableName}/{fileName}";
 
                 var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
 

@@ -45,6 +45,7 @@ namespace Theradex.ODS.Manager.Repositories
 
             CONNECTION_STRING = string.Format(defalutConnectionString, _odsSettings.Host, _odsSettings.Username, _odsSettings.Password, _odsSettings.Database, _odsSettings.Port);
             //CONNECTION_STRING = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+            //CONNECTION_STRING = "Host=localhost;Username=postgres;Password=docker;Database=ods;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
 
             _logger.LogInformation($"CONNECTION_STRING: {CONNECTION_STRING}");
         }

@@ -1,4 +1,5 @@
 ﻿using Amazon;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.SimpleEmail;
@@ -24,7 +25,6 @@ namespace Theradex.ODS.Extractor.Helpers
         private readonly ILogger<AWSCoreHelper> _logger;
         private readonly AppSettings _appSettings;
         private readonly IAmazonS3 _s3Client;
-
         public AWSCoreHelper(ILogger<AWSCoreHelper> logger, IAmazonS3 s3Client, IOptions<AppSettings> appOptions)
         {
             _logger = logger;

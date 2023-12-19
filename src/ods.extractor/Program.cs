@@ -1,9 +1,11 @@
 ﻿using Amazon;
 using Amazon.DynamoDBv2;
+using Amazon.DynamoDBv2.DataModel;
 using Amazon.Extensions.NETCore.Setup;
 using Amazon.Runtime;
 using Amazon.Runtime.CredentialManagement;
 using Amazon.S3;
+using EfficientDynamoDb.Configs.Retries;
 using LocalStack.Client.Extensions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
@@ -18,6 +20,7 @@ using Theradex.ODS.Extractor.Helpers;
 using Theradex.ODS.Extractor.Interfaces;
 using Theradex.ODS.Extractor.Models.Configuration;
 using Theradex.ODS.Extractor.Processors;
+using Theradex.ODS.Extractor.Repository.Dynamodb;
 using Theradex.ODS.Extractor.Services;
 using Theradex.ODS.Models;
 
@@ -47,15 +50,15 @@ namespace Theradex.ODS.Extractor
 
                  if (environmentName.ToLower() == "local")
                  {
-                     services.AddSingleton<IAmazonDynamoDB>(sp =>
+                     var amazonDynamodb = new AmazonDynamoDBClient(new BasicAWSCredentials("testkey", "testsecret"), new AmazonDynamoDBConfig
                      {
-                         var clientConfig = new AmazonDynamoDBConfig
-                         {
-                             ServiceURL = "http://localhost:4566",
-                             UseHttp = true
-                         };
-                         return new AmazonDynamoDBClient(new BasicAWSCredentials("testkey", "testsecret"), clientConfig);
+                         RegionEndpoint = RegionEndpoint.USEast1,
+                         ServiceURL = "http://localhost:4566",
+                         UseHttp = true,
+                         AuthenticationRegion = "us-east-1",
                      });
+
+                     services.AddSingleton(typeof(IAmazonDynamoDB), provider => amazonDynamodb);
 
                      Console.WriteLine("Added LocalStack DynamoDb");
 
@@ -78,11 +81,15 @@ namespace Theradex.ODS.Extractor
                      services.AddAWSService<IAmazonS3>();
                  }
 
+                 services.AddScoped<IDynamoDBContext, DynamoDBContext>();
+
+
                  services.AddTransient<IAWSCoreHelper, AWSCoreHelper>();
 
                  services.AddTransient<IMedidataRWSService, MedidataRWSService>();
 
                  services.AddSingleton<IBatchRunControlRepository<BatchRunControl>, BatchRunControlRepository>();
+                 services.AddSingleton<IProductReviewRepository, ProductReviewRepository>();
 
                  services.AddSingleton<IConfigManager, ConfigManager>();
 
@@ -152,7 +159,7 @@ namespace Theradex.ODS.Extractor
                  IHostEnvironment env = hostingContext.HostingEnvironment;
                  IConfigurationRoot configurationRoot = configuration.Build();
 
-                 configuration.SetBasePath(Directory.GetCurrentDirectory());               
+                 configuration.SetBasePath(Directory.GetCurrentDirectory());
                  configuration.AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
                  configuration.AddEnvironmentVariables();
              });

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Threading.Tasks;
+using Theradex.ODS.Models.DataAccess;
 
 namespace Theradex.ODS.Extractor.Interfaces
 {
@@ -37,10 +38,13 @@ namespace Theradex.ODS.Extractor.Interfaces
         List<T> HasActiveJobs(string tableName);
     }
 
-    public interface IManagerTableInfoRepository<T> : ODSNpgsqlLogger<T>
+    public interface IProductReviewRepository
     {
+        public Task AddAsync(ProductReviewItem reviewItem);
 
-
+        Task<IEnumerable<ProductReviewItem>> GetAllAsync();
+        Task<IEnumerable<ProductReviewItem>> GetUserReviewsAsync(int userId);
+        Task<ProductReviewItem> GetReviewAsync(int userId, string productName);
     }
-}
+}   
 

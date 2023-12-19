@@ -3,11 +3,13 @@ using Extension.Methods;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Microsoft.VisualBasic;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Polly;
 using Polly.CircuitBreaker;
 using System.Net;
+using Theradex.ODS.Manager.Helpers.Extensions;
 using Theradex.ODS.Manager.Interfaces;
 using Theradex.ODS.Manager.Models;
 using Theradex.ODS.Manager.Models.Configuration;
@@ -97,8 +99,10 @@ namespace Theradex.ODS.Manager.Processors
         {
             try
             {
-                //await LoadAllDataFromFileSystem();
-                await GetODSTableIntervalDate();
+                //await GetTableIntervalsDetailInfoViaThxExtracts(exInput.TableName);
+                //await GetTableIntervalsDetailInfoViaThxExtracts("DATAPOINTS");
+                //await GetODSTableIntervalIncrementalDate(exInput.TableName);
+                await GetTableIntervalsDetailInfoViaThxExtracts();
                 return true;
             }
             catch (Exception ex)
@@ -107,7 +111,7 @@ namespace Theradex.ODS.Manager.Processors
             }
         }
 
-        private async Task GetODSTableIntervalDate()
+        private async Task GetTableIntervalsDetailInfoViaThxExtracts(string tableName = "NONE")
         {
             List<BatchRunControl> batchRunControls = new List<BatchRunControl>();
 
@@ -115,6 +119,9 @@ namespace Theradex.ODS.Manager.Processors
 
 
             string baseUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+
+            if (tableName != "NONE")
+                odsmanager_table_matadatas = odsmanager_table_matadatas.Where(i => i.TableName.ToUpper() == tableName).ToList();
 
 
             if (odsmanager_table_matadatas.Any())
@@ -163,6 +170,22 @@ namespace Theradex.ODS.Manager.Processors
 
                     }
 
+                    var last = await _odsRepository.GetByMaxApiEndDateAsync(odsmanager_table_matadata.TableName);
+
+                    if (last != null)
+                    {
+                        var isMinDateValid = DateTime.TryParse(last.ApiEndDate, out minDate);
+                        if (!isMinDateValid)
+                        {
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Min date not valid.");
+
+                            minDate = new DateTime(2000, 01, 01);
+                            odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Defaulting to 01/01/2000");
+                        }
+                    }
+
+                    //minDate = DateTime.Now.Date;
                     ODSData oDSData = new ODSData();
                     oDSData.TableName = odsmanager_table_matadata.TableName;
                     oDSData.StartDate = minDate;
@@ -213,7 +236,7 @@ namespace Theradex.ODS.Manager.Processors
 
             List<IntervalDataItem> tableIntervals = new List<IntervalDataItem>();
 
-            while (startDate <= currentEndDate)
+            while (startDate.Date <= currentEndDate.Date)
             {
                 string formattedStartDate = startDate.ToString("yyyy-MM-dd");
                 string formattedEndDate = endDate.ToString("yyyy-MM-dd");
@@ -358,8 +381,8 @@ namespace Theradex.ODS.Manager.Processors
                         var batchRunControlRow = new BatchRunControl();
 
                         batchRunControlRow.TableName = odsData.TableName;
-                        batchRunControlRow.ApiStartDate = item.BucketStart.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
-                        batchRunControlRow.ApiEndDate = item.BucketStart.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
+                        batchRunControlRow.ApiStartDate = item.Start.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
+                        batchRunControlRow.ApiEndDate = item.Start.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
                         batchRunControlRow.JobStartTime = null;
                         batchRunControlRow.JobEndTime = null;
                         batchRunControlRow.Slot = item.Bucket;
@@ -370,6 +393,9 @@ namespace Theradex.ODS.Manager.Processors
                         batchRunControlRow.Payload = null;
                         batchRunControlRow.RaveDataUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
                         batchRunControlRow.UrlToPullData = "/RaveWebServices/datasets/ThxExtracts2.json";
+
+                        if (item.Start.Date == DateTime.Now.Date) continue;
+
                         records.Add(batchRunControlRow);
                     }
                     catch (Exception ex)
@@ -412,34 +438,10 @@ namespace Theradex.ODS.Manager.Processors
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{batchRunControl.Id}]  [Table:{batchRunControl.TableName}] Ended");
 
         }
-        private async Task<bool> SaveData(string response, string tableName, string fileName, string bucketName = "ods-table-data")
-        {
-            var path = string.Format($"odsmanager/interval/{tableName}/{fileName}");
 
-            if (string.IsNullOrEmpty(_appSettings.ArchiveBucket))
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed as S3 Bucket was not configured; Path: {path}");
-                return false;
-            }
+        #region IncrementalProcessing
 
-            var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, path, response);
-
-            if (!isSuccess)
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {path}");
-
-                return false;
-            }
-            else
-            {
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {path}");
-
-                return true;
-            }
-        }
-
-        #region Temp 
-        private async Task<List<BatchRunControl>> GeneratODSTableIntervals(BatchRunControl batchRunControl, ODSData odsData)
+        private async Task<List<BatchRunControl>> ResumeAndGenerateODSTableIntervals(BatchRunControl batchRunControl, ODSData odsData)
         {
             List<BatchRunControl> batchRunControls = new List<BatchRunControl>();
 
@@ -450,7 +452,6 @@ namespace Theradex.ODS.Manager.Processors
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
 
             DateTime startDate = odsData.StartDate;
-            startDate = new DateTime(startDate.Year, startDate.Month, 1);
 
             DateTime endDate = startDate.AddDays(1);
             DateTime currentEndDate = DateTime.Now;
@@ -458,7 +459,7 @@ namespace Theradex.ODS.Manager.Processors
             // Subtract one day to get the last day of the current month
             endDate = endDate.AddMilliseconds(-1);
 
-            while (startDate <= currentEndDate)
+            while (startDate.Date < currentEndDate.Date)
             {
                 string formattedStartDate = startDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
                 string formattedEndDate = endDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
@@ -475,8 +476,8 @@ namespace Theradex.ODS.Manager.Processors
                     var batchRunControlRow = new BatchRunControl();
 
                     batchRunControlRow.TableName = batchRunControl.TableName;
-                    batchRunControlRow.ApiStartDate = formattedStartDate;
-                    batchRunControlRow.ApiEndDate = formattedEndDate;
+                    batchRunControlRow.ApiStartDate = startDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
+                    batchRunControlRow.ApiEndDate = startDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
                     batchRunControlRow.JobStartTime = null;
                     batchRunControlRow.JobEndTime = null;
                     batchRunControlRow.Slot = bucket;
@@ -503,22 +504,107 @@ namespace Theradex.ODS.Manager.Processors
             }
 
             if (batchRunControls.Count > 0)
+            {
                 await _odsRepository.AddMultipleAsync(batchRunControls);
-
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; - Saving to database");
-
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; - Saving to database success.");
-
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; - Saving to database");
+                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; - Saving to database success.");
+            }
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{batchRunControl.Id}]  [Table:{batchRunControl.TableName}] Ended");
 
             return batchRunControls;
 
         }
 
-        #endregion
+        private async Task GetODSTableIntervalIncrementalDate(string tableName = "NONE")
+        {
+            List<BatchRunControl> batchRunControls = new List<BatchRunControl>();
 
+            var odsmanager_table_matadatas = await _odsManagerRepository.GetAllAsync();
+
+
+            string baseUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+
+            if (tableName != "NONE")
+                odsmanager_table_matadatas = odsmanager_table_matadatas.Where(i => i.TableName.ToUpper() == tableName).ToList();
+
+            if (odsmanager_table_matadatas.Any())
+            {
+                foreach (var odsmanager_table_matadata in odsmanager_table_matadatas)
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] Started");
+
+                    //if (odsmanager_table_matadata.TableName == "LOCALIZEDDATASTRINGS" || odsmanager_table_matadata.TableName == "FORMRESTRICTIONS" || odsmanager_table_matadata.TableName == "FIELDRESTRICTIONS")
+                    //{
+                    //    _logger.LogWarning($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] We have issue in extracting so skiping this.");
+                    //    continue;
+                    //}
+
+                    DateTime minDate = DateTime.Now;
+
+                    // Deserialize JSON into a C# object
+                    Payloads? payload;
+                    try
+                    {
+                        payload = JsonConvert.DeserializeObject<Payloads>(odsmanager_table_matadata.Payload);
+                        if (payload != null)
+                        {
+                            odsmanager_table_matadata.Payloads = payload;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError($"TraceId:{_appSettings.TraceId}; Error parsing response received. [Table:{odsmanager_table_matadata.TableName}] ");
+                        throw;
+                    }
+
+                    odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
+
+                    if (odsmanager_table_matadata.Payloads.Payload != null && odsmanager_table_matadata.Payloads.Payload.Count == 1)
+                    {
+                        var isMinDateValid = DateTime.TryParse(odsmanager_table_matadata.Payloads.Payload.First().MinDate, out minDate);
+                        if (!isMinDateValid)
+                        {
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Min date not valid.");
+
+                            minDate = new DateTime(2000, 01, 01);
+                            odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Defaulting to 01/01/2000");
+                        }
+
+                    }
+
+                    var last = await _odsRepository.GetByMaxApiEndDateAsync(odsmanager_table_matadata.TableName);
+
+                    if (last != null)
+                    {
+                        var isMinDateValid = DateTime.TryParse(last.ApiEndDate, out minDate);
+                        if (!isMinDateValid)
+                        {
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Min date not valid.");
+
+                            minDate = new DateTime(2000, 01, 01);
+                            odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtractsGetTableIntervalsDetailInfo.json";
+                            _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Defaulting to 01/01/2000");
+                        }
+                    }
+
+                    ODSData oDSData = new ODSData();
+                    oDSData.TableName = odsmanager_table_matadata.TableName;
+                    oDSData.StartDate = minDate;
+                    oDSData.URL = baseUrl;
+
+                    if (oDSData.StartDate.Date >= DateTime.Now.Date) continue;
+
+                    var batchRunControl = await ResumeAndGenerateODSTableIntervals(odsmanager_table_matadata, oDSData);
+                    //var batchRunControl = await ExtractODSTableIntervals(odsmanager_table_matadata, oDSData);
+
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] Ended");
+                }
+            }
+        }
+
+        #endregion
 
         #region Load from File System
 
@@ -663,5 +749,48 @@ namespace Theradex.ODS.Manager.Processors
             return false;
         }
         #endregion
+
+        private async Task<bool> SaveData(string response, string tableName, string fileName)
+        {
+            if (_appSettings.ArchiveBucket.NotNullAndNotEmpty())
+            {
+                var key = $"{_appSettings.Env}/Manager/Data/{tableName}/{fileName}";
+
+                var isSuccess = await _awsCoreHelper.UploadDataAsync(_appSettings.ArchiveBucket, key, response);
+
+                if (!isSuccess)
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData failed; Path: {key}");
+                }
+                else
+                {
+                    _logger.LogInformation($"TraceId:{_appSettings.TraceId}; SaveData success; Path: {key}");
+                }
+            }
+
+            if (_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                var basePath = Path.Combine(_appSettings.LocalArchivePath, "odsmanager", tableName);
+
+                if (!Directory.Exists(basePath))
+                {
+                    Directory.CreateDirectory(basePath);
+                }
+
+                var path = Path.Combine(basePath, fileName);
+
+                await File.WriteAllTextAsync(path, response);
+            }
+
+            if (!_appSettings.ArchiveBucket.NotNullAndNotEmpty() && !_appSettings.LocalArchivePath.NotNullAndNotEmpty())
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; No ArchiveBucket or LocalArchivePath configured;");
+
+                return false;
+            }
+
+            return true;
+        }
+
     }
 }

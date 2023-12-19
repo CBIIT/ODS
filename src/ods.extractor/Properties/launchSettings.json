@@ -1,6 +1,6 @@
 {
   "profiles": {
-    "ODSExtractor_devnci": {
+    "devnci": {
       "commandName": "Project",
       "commandLineArgs": "ODSExtractor EXTERNALUSERS dev",
       "environmentVariables": {
@@ -9,7 +9,7 @@
       },
       "distributionName": ""
     },
-    "ODSExtractor_local": {
+    "local": {
       "commandName": "Project",
       "commandLineArgs": "ODSExtractor FOLDERS dev",
       "environmentVariables": {
