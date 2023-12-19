@@ -44,9 +44,9 @@ namespace Theradex.ODS.Manager.Repositories
             _awsCoreHelper = awsCoreHelper;
 
             CONNECTION_STRING = string.Format(defalutConnectionString, _odsSettings.Host, _odsSettings.Username, _odsSettings.Password, _odsSettings.Database, _odsSettings.Port);
-            //CONNECTION_STRING = "Host=localhost;Username=postgres;Password=docker;Database=orders;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
+            //CONNECTION_STRING = "Host=localhost;Username=postgres;Password=docker;Database=ods;Port=5432;Pooling=true;Minimum Pool Size=0;Minimum Pool Size=100;Connection Lifetime=0 ";
 
-        _logger.LogInformation($"CONNECTION_STRING: {CONNECTION_STRING}");
+            _logger.LogInformation($"CONNECTION_STRING: {CONNECTION_STRING}");
         }
 
         public void Add(BatchRunControl entity)
@@ -908,5 +908,86 @@ namespace Theradex.ODS.Manager.Repositories
         {
             throw new NotImplementedException();
         }
+
+        public BatchRunControl GetByMaxApiEndDate(string tableName)
+        {
+            BatchRunControl batchRunControl = null;
+
+            using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
+            {
+                connection.Open();
+                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT * FROM batch_run_control WHERE table_name = @TableName ORDER BY api_enddate::timestamp DESC LIMIT 1", connection))
+                {
+                    cmd.Parameters.AddWithValue("@TableName", tableName.ToUpper());
+                    using (NpgsqlDataReader reader = cmd.ExecuteReader())
+                    {
+                        while (reader.Read())
+                        {
+                            batchRunControl = new BatchRunControl
+                            {
+                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
+                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
+                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
+                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
+                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
+                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
+                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
+                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                            };
+
+                        }
+                    }
+                }
+            }
+            return batchRunControl;
+        }
+
+        public async Task<BatchRunControl> GetByMaxApiEndDateAsync(string tableName)
+        {
+            BatchRunControl batchRunControl = null;
+
+            using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
+            {
+                connection.Open();
+                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT * FROM batch_run_control WHERE table_name = @TableName ORDER BY api_enddate::timestamp DESC LIMIT 1", connection))
+                {
+                    cmd.Parameters.AddWithValue("@TableName", tableName.ToUpper());
+                    using (NpgsqlDataReader reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (reader.Read())
+                        {
+                            batchRunControl = new BatchRunControl
+                            {
+                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
+                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
+                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
+                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
+                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
+                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
+                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
+                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
+                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
+                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
+                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
+                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
+                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
+                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
+                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
+                            };
+
+                        }
+                    }
+                }
+            }
+            return batchRunControl;
+        }
+
     }
 }
