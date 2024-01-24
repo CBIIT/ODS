@@ -51,9 +51,11 @@ namespace Theradex.ODS.Extractor.Processors
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; {odsData.TableName}");
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; {odsData.URL}");
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                bool bexecute = true;
-
-                while (bexecute)
+                
+                var execute = true;
+                var count = odsData.NoOfRecords == 0 ? 1 : odsData.NoOfRecords;
+                
+                while (execute && count <=1)
                 {
 
                     var HasActiveJobs = await _odsRepository.HasActiveJobsAsync(odsData.TableName.ToUpper());
@@ -64,7 +66,7 @@ namespace Theradex.ODS.Extractor.Processors
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; [Id:{brc.Id}]" + $"[Slot:{brc.Slot}] " + $"[NoOfRecords:{brc.NoOfRecords}] " + $"[IsRunCompleteFlag:{brc.IsRunCompleteFlag}] ");
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; There is allready active job running.");
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                        bexecute = false;
+                        execute = false;
                         break;
                     }
 
@@ -74,7 +76,7 @@ namespace Theradex.ODS.Extractor.Processors
                     {
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; Current batch not found!!!");
                         _logger.LogWarning($"TraceId:{_appSettings.TraceId}; -------------------------------------");
-                        bexecute = false;
+                        execute = false;
                         break;
                     }
 
@@ -85,7 +87,9 @@ namespace Theradex.ODS.Extractor.Processors
                     odsData.URL = baseUrl;
 
                     var isSuccess = await ExtractSingleBatch(brcNext, odsData);
-                    bexecute = true;
+                    
+                    execute = true;
+                    count++;
                 }
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
@@ -127,23 +131,10 @@ namespace Theradex.ODS.Extractor.Processors
                 );
 
 
-            //await _odsRepository.StartedAsync(batchRunControl);
-
             DateTime dtStartDate = DateTime.Parse(batchRunControl.ApiStartDate);
             DateTime dtEndDate = DateTime.Parse(batchRunControl.ApiEndDate);
 
             TimeSpan dateDifference = dtEndDate - dtStartDate;
-
-            // Check if the date difference is more than 365 days
-            if (dateDifference.TotalDays > 365)
-            {
-                // Log an info message indicating the date difference is being limited
-                _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Date difference is more than 365 days. Limiting to 365 days.");
-
-                // Limit the date difference to 365 days
-                dtEndDate = dtStartDate.AddDays(365);
-            }
-
 
             string formattedStartDate = dtStartDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
             string formattedEndDate = dtEndDate.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
@@ -161,8 +152,6 @@ namespace Theradex.ODS.Extractor.Processors
             {
                 string responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "_RAW.json";
                 string responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + ".json";
-               // string error_responseDataFileNameWithExtensionRAW = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR_RAW.json";
-               // string error_responseDataFileNameWithExtension = responseDataFileName.Replace("#PAGENUMBER#", pageNumber.ToString()) + "ERROR.json";
 
                 try
                 {

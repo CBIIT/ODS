@@ -102,7 +102,7 @@ namespace Theradex.ODS.Manager.Processors
                 //await GetTableIntervalsDetailInfoViaThxExtracts(exInput.TableName);
                 //await GetTableIntervalsDetailInfoViaThxExtracts("DATAPOINTS");
                 //await GetODSTableIntervalIncrementalDate(exInput.TableName);
-                await GetTableIntervalsDetailInfoViaThxExtracts();
+                await GetTableIntervalsDetailInfoViaThxExtracts(exInput);
                 return true;
             }
             catch (Exception ex)
@@ -111,8 +111,12 @@ namespace Theradex.ODS.Manager.Processors
             }
         }
 
-        private async Task GetTableIntervalsDetailInfoViaThxExtracts(string tableName = "NONE")
+        private async Task GetTableIntervalsDetailInfoViaThxExtracts(ManagerInput exInput)
         {
+            string tableName = "NONE";
+            if(exInput.TableName !=string.Empty) tableName = exInput.TableName;
+            
+            
             List<BatchRunControl> batchRunControls = new List<BatchRunControl>();
 
             var odsmanager_table_matadatas = await _odsManagerRepository.GetAllAsync();
@@ -129,12 +133,6 @@ namespace Theradex.ODS.Manager.Processors
                 foreach (var odsmanager_table_matadata in odsmanager_table_matadatas)
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] Started");
-
-                    if (odsmanager_table_matadata.TableName == "LOCALIZEDDATASTRINGS" || odsmanager_table_matadata.TableName == "FORMRESTRICTIONS" || odsmanager_table_matadata.TableName == "FIELDRESTRICTIONS")
-                    {
-                        _logger.LogWarning($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] We have issue in extracting so skiping this.");
-                        continue;
-                    }
 
                     DateTime minDate = DateTime.Now;
 
@@ -154,7 +152,7 @@ namespace Theradex.ODS.Manager.Processors
                         throw;
                     }
 
-                    odsmanager_table_matadata.RaveDataUrl = "/RaveWebServices/datasets/ThxExtracts2.json";
+                    odsmanager_table_matadata.RaveDataUrl = exInput.RaveDataUrl != string.Empty ? exInput.RaveDataUrl : "/RaveWebServices/datasets/ThxExtracts2.json";
 
                     if (odsmanager_table_matadata.Payloads.Payload != null && odsmanager_table_matadata.Payloads.Payload.Count == 1)
                     {

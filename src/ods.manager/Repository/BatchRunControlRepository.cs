@@ -956,31 +956,54 @@ namespace Theradex.ODS.Manager.Repositories
             using (NpgsqlConnection connection = new NpgsqlConnection(CONNECTION_STRING))
             {
                 connection.Open();
-                using (NpgsqlCommand cmd = new NpgsqlCommand("SELECT * FROM batch_run_control WHERE table_name = @TableName ORDER BY api_enddate::timestamp DESC LIMIT 1", connection))
+                
+                string query = @"SELECT *
+                                        FROM batch_run_control
+                                        WHERE ID = (WITH OrderedRuns AS (SELECT id,
+                                                                                CAST(api_startdate AS TIMESTAMP)                         AS api_startdate,
+                                                                                CAST(api_enddate AS TIMESTAMP)                           AS api_enddate,
+                                                                                LAG(CAST(api_enddate AS TIMESTAMP))
+                                                                                OVER (ORDER BY CAST(api_startdate AS TIMESTAMP))         AS previous_api_enddate,
+                                                                                LAG(id) OVER (ORDER BY CAST(api_startdate AS TIMESTAMP)) AS previous_id
+                                                                         FROM batch_run_control
+                                                                         WHERE table_name = 'DATAPOINTS'
+                                                                           AND CAST(api_startdate AS TIMESTAMP) >= CURRENT_DATE - INTERVAL '1000 days')
+                                                    SELECT previous_id
+                                                    FROM OrderedRuns
+                                                    WHERE api_startdate IS NOT NULL
+                                                      AND previous_api_enddate IS NOT NULL
+                                                      AND api_startdate > previous_api_enddate + INTERVAL '1 day'
+                                                    ORDER BY api_startdate DESC LIMIT 1)
+                                    ";
+                query =
+                    @"SELECT * FROM batch_run_control WHERE table_name = @TableName ORDER BY api_enddate::timestamp DESC LIMIT 1";
+
+                using (NpgsqlCommand cmd = new NpgsqlCommand(query, connection))
                 {
                     cmd.Parameters.AddWithValue("@TableName", tableName.ToUpper());
                     using (NpgsqlDataReader reader = await cmd.ExecuteReaderAsync())
                     {
                         while (reader.Read())
                         {
-                            batchRunControl = new BatchRunControl
-                            {
-                                Id = reader.IsDBNull(0) ? 0 : reader.GetInt32(0),
-                                TableName = reader.IsDBNull(1) ? string.Empty : reader.GetString(1),
-                                ApiStartDate = reader.IsDBNull(2) ? string.Empty : reader.GetString(2),
-                                ApiEndDate = reader.IsDBNull(3) ? string.Empty : reader.GetString(3),
-                                Slot = reader.IsDBNull(4) ? string.Empty : reader.GetString(4),
-                                NoOfRecords = reader.IsDBNull(5) ? 0 : reader.GetInt32(5),
-                                UrlToPullData = reader.IsDBNull(6) ? string.Empty : reader.GetString(6),
-                                RaveUsername = reader.IsDBNull(7) ? string.Empty : reader.GetString(7),
-                                RavePassword = reader.IsDBNull(8) ? string.Empty : reader.GetString(8),
-                                IsRunCompleteFlag = reader.IsDBNull(9) ? string.Empty : reader.GetString(9),
-                                JobStartTime = reader.IsDBNull(10) ? DateTime.MinValue : reader.GetDateTime(10),
-                                JobEndTime = reader.IsDBNull(11) ? DateTime.MinValue : reader.GetDateTime(11),
-                                UrlUsedToGetInterval = reader.IsDBNull(12) ? string.Empty : reader.GetString(12),
-                                Created = reader.IsDBNull(13) ? DateTime.MinValue : reader.GetDateTime(13),
-                                Updated = reader.IsDBNull(14) ? DateTime.MinValue : reader.GetDateTime(14)
-                            };
+                            // Instantiate the object
+                            batchRunControl = new BatchRunControl();
+
+                            batchRunControl.Id = reader.GetValueOrDefault(0, 0);
+                            batchRunControl.TableName = reader.GetValueOrDefault(1, string.Empty);
+                            batchRunControl.ApiStartDate = reader.GetValueOrDefault(2, string.Empty);
+                            batchRunControl.ApiEndDate = reader.GetValueOrDefault(3, string.Empty);
+                            batchRunControl.Slot = reader.GetValueOrDefault(4, string.Empty);
+                            batchRunControl.NoOfRecords = reader.GetValueOrDefault(5, 0);
+                            batchRunControl.UrlToPullData = reader.GetValueOrDefault(6, string.Empty);
+                            batchRunControl.RaveUsername = reader.GetValueOrDefault(7, string.Empty);
+                            batchRunControl.RavePassword = reader.GetValueOrDefault(8, string.Empty);
+                            batchRunControl.IsRunCompleteFlag = reader.GetValueOrDefault(9, string.Empty);
+                            batchRunControl.JobStartTime = reader.GetValueOrDefault(10, DateTime.MinValue);
+                            batchRunControl.JobEndTime = reader.GetValueOrDefault(11, DateTime.MinValue);
+                            batchRunControl.UrlUsedToGetInterval = reader.GetValueOrDefault(12, string.Empty);
+                            batchRunControl.Created = reader.GetValueOrDefault(13, DateTime.MinValue);
+                            batchRunControl.Updated = reader.GetValueOrDefault(14, DateTime.MinValue);
+
 
                         }
                     }

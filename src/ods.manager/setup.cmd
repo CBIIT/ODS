@@ -58,5 +58,6 @@ REM aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 rm --recurs
 REM Delete the bucket
 REM aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 rb --force s3://your_bucket_name
 
+REM aws s3 sync  s3://ods-table-data/dev s3://ods-table-data/uat  --profile default
 
 pause

@@ -20,6 +20,8 @@ namespace Theradex.ODS.Manager
         private readonly Func<ManagerTypeEnum, IProcessor> _processServiceResolver;
         private readonly IConfigManager _configManager;
         private const int INPUT_COUNT = 50000;
+        private string[] requiredArguments = { "managerType", "tableName", "env", "raveDataUrl" };
+
 
         public App(ILogger<App> logger,
             IOptions<AppSettings> appOptions,
@@ -40,23 +42,25 @@ namespace Theradex.ODS.Manager
 
         private ManagerInput? ValidateAndParseArguments(string[] args)
         {
-            if (args.Length == 0)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; No Arguments passed. Aborting.");
+            //--managerType=ODSManager --tableName=FOLDERS --env=dev --raveDataUrl="/RaveWebServices/datasets/ThxExtracts2.json"
+            var commandLineArgs = new CommandLineArgs(args);
 
+            if (!commandLineArgs.HasRequiredArguments(requiredArguments))
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId};Missing one or more required arguments.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId};Required arguments are:");
+                foreach (var arg in requiredArguments)
+                {
+                    _logger.LogError($"TraceId:{_appSettings.TraceId};--{arg}");
+                }
                 return null;
             }
 
-            if (args.Length < 3)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; 3 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
+            var ManagerType = string.IsNullOrEmpty(commandLineArgs["managerType"]) ==false ? commandLineArgs["managerType"] : "ODSManager" ;
+            var tableName = string.IsNullOrEmpty(commandLineArgs["tableName"]) == false ? commandLineArgs["tableName"] : "NONE";
+            var env = string.IsNullOrEmpty(commandLineArgs["env"]) == false ? commandLineArgs["env"] : "ODSManager";
+            var raveDataUrl = string.IsNullOrEmpty(commandLineArgs["raveDataUrl"]) == false ? commandLineArgs["raveDataUrl"] : "/RaveWebServices/datasets/ThxExtracts2.json";
 
-                return null;
-            }
-
-            var ManagerType = args[0];
-            var tableName = args[1];
-            var env = args[2];
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: ManagerType {ManagerType}; tableName {tableName}; env {env};");
 
@@ -78,7 +82,7 @@ namespace Theradex.ODS.Manager
 
             _appSettings.Env = env;
 
-            return new ManagerInput { TableName = tableName, ManagerType = ManagerTypeToRun };
+            return new ManagerInput { TableName = tableName, RaveDataUrl = raveDataUrl, ManagerType = ManagerTypeToRun };
         }
 
         public async Task RunAsync(string[] args)
@@ -115,6 +119,31 @@ namespace Theradex.ODS.Manager
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; Exception in RunAsync: {ex}");
             }
+        }
+       
+    }
+
+    class CommandLineArgs
+    {
+        private readonly Dictionary<string, string> argsDictionary = new Dictionary<string, string>();
+        public string this[string key] => argsDictionary.TryGetValue(key, out var value) ? value : string.Empty;
+
+        public CommandLineArgs(string[] args)
+        {
+            foreach (var arg in args)
+            {
+                var split = arg.Split(new char[] { '=' }, 2);
+                if (split.Length == 2 && split[0].StartsWith("--"))
+                {
+                    var key = split[0].Substring(2); // Remove the "--" prefix
+                    var value = split[1];
+                    argsDictionary[key] = value;
+                }
+            }
+        }
+        public bool HasRequiredArguments(params string[] requiredArgs)
+        {
+            return requiredArgs.All(arg => argsDictionary.ContainsKey(arg));
         }
     }
 }

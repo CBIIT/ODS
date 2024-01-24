@@ -44,6 +44,11 @@ namespace Theradex.ODS.Manager.Helpers.Extensions
         {
             return dr.IsDBNull(dr.GetOrdinal(name));
         }
+        public static T GetValueOrDefault<T>(this DbDataReader reader, int ordinal, T defaultValue = default)
+        {
+            return reader.IsDBNull(ordinal) ? defaultValue : reader.GetFieldValue<T>(ordinal);
+        }
+
     }
 
 }

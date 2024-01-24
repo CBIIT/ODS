@@ -58,6 +58,14 @@ namespace Theradex.ODS.Extractor
             var tableName = args[1];
             var env = args[2];
 
+            int noOfRecords = 1;
+
+            if (!(args.Length >= 4 && Int32.TryParse(args[3], out noOfRecords)))
+            {
+                noOfRecords = 1;
+            }
+
+
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; tableName {tableName}; env {env};");
 
             if (extractorType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
@@ -78,7 +86,7 @@ namespace Theradex.ODS.Extractor
 
             _appSettings.Env = env;
 
-            return new ExtractorInput { TableName = tableName, ExtractorType = extractorTypeToRun };
+            return new ExtractorInput { TableName = tableName, NoOfRecords = noOfRecords, ExtractorType = extractorTypeToRun, };
         }
 
         public async Task RunAsync(string[] args)

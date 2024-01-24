@@ -11,7 +11,7 @@
     },
     "local": {
       "commandName": "Project",
-      "commandLineArgs": "ODSManager FOLDERS dev",
+      "commandLineArgs": "--managerType=ODSManager --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtracts2.json\" --tableName=NONE",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSEnvironment": "local-stack"
