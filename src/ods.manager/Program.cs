@@ -99,12 +99,15 @@ namespace Theradex.ODS.Manager
                  services.AddSingleton<IConfigManager, ConfigManager>();
 
                  services.AddScoped<ODSManager_Processor>();
+                 services.AddScoped<ODSManager_Incremental_Processor>();
 
                  services.AddTransient<Func<ManagerTypeEnum, IProcessor>>(serviceProvider =>
                      (ext) =>
                      {
                          if (ext == ManagerTypeEnum.ODSManager)
                              return serviceProvider.GetService<ODSManager_Processor>();
+                         else if (ext == ManagerTypeEnum.ODSManager_Incremental)
+                             return serviceProvider.GetService<ODSManager_Incremental_Processor>();
                          else
                              return null;
                      });

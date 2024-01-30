@@ -25,9 +25,9 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Theradex.ODS.Extractor.Processors
 {
-    public class ODSExtractor_Processor : BaseProcessor, IProcessor
+    public class ODSExtractor_IncrementalProcessor : BaseProcessor, IProcessor
     {
-        public ODSExtractor_Processor(
+        public ODSExtractor_IncrementalProcessor(
             IMedidataRWSService medidateRWSService,
             ILogger<ODSExtractor_Processor> logger,
             IOptions<AppSettings> appOptions,
@@ -95,7 +95,7 @@ namespace Theradex.ODS.Extractor.Processors
 
                 _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
 
-                return false;
+                return true;
             }
             catch (Exception ex)
             {

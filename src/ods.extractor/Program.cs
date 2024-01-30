@@ -94,12 +94,15 @@ namespace Theradex.ODS.Extractor
                  services.AddSingleton<IConfigManager, ConfigManager>();
 
                  services.AddScoped<ODSExtractor_Processor>();
+                 services.AddScoped<ODSExtractor_IncrementalProcessor>();
 
                  services.AddTransient<Func<ExtractorTypeEnum, IProcessor>>(serviceProvider =>
                      (ext) =>
                      {
                          if (ext == ExtractorTypeEnum.ODSExtractor)
                              return serviceProvider.GetService<ODSExtractor_Processor>();
+                         else if (ext == ExtractorTypeEnum.ODSExtractor_Incremental)
+                             return serviceProvider.GetService<ODSExtractor_IncrementalProcessor>();
                          else
                              return null;
                      });

@@ -60,6 +60,7 @@ namespace Theradex.ODS.Manager
             var tableName = string.IsNullOrEmpty(commandLineArgs["tableName"]) == false ? commandLineArgs["tableName"] : "NONE";
             var env = string.IsNullOrEmpty(commandLineArgs["env"]) == false ? commandLineArgs["env"] : "ODSManager";
             var raveDataUrl = string.IsNullOrEmpty(commandLineArgs["raveDataUrl"]) == false ? commandLineArgs["raveDataUrl"] : "/RaveWebServices/datasets/ThxExtracts2.json";
+            var processor = string.IsNullOrEmpty(commandLineArgs["processor"]) == false ? commandLineArgs["processor"] : "ODSManager_Incremental_Processor";
 
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: ManagerType {ManagerType}; tableName {tableName}; env {env};");

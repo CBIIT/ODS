@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.Logging;
+﻿ using Microsoft.Extensions.Logging;
 using Theradex.ODS.Extractor.Enums;
 using Theradex.ODS.Extractor.Interfaces;
 using Theradex.ODS.Extractor.Models.Configuration;
@@ -20,6 +20,7 @@ namespace Theradex.ODS.Extractor
         private readonly Func<ExtractorTypeEnum, IProcessor> _processServiceResolver;
         private readonly IConfigManager _configManager;
         private const int INPUT_COUNT = 50000;
+        private string[] requiredArguments = { "managerType", "tableName", "env", "raveDataUrl" };
 
         public App(ILogger<App> logger,
             IOptions<AppSettings> appOptions,
@@ -40,46 +41,46 @@ namespace Theradex.ODS.Extractor
 
         private ExtractorInput? ValidateAndParseArguments(string[] args)
         {
-            if (args.Length == 0)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; No Arguments passed. Aborting.");
+            
+            //--managerType=ODSManager --tableName=FOLDERS --env=dev --raveDataUrl="/RaveWebServices/datasets/ThxExtracts2.json"
+            var commandLineArgs = new CommandLineArgs(args);
 
+            if (!commandLineArgs.HasRequiredArguments(requiredArguments))
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId};Missing one or more required arguments.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId};Required arguments are:");
+                foreach (var arg in requiredArguments)
+                {
+                    _logger.LogError($"TraceId:{_appSettings.TraceId};--{arg}");
+                }
                 return null;
             }
 
-            if (args.Length < 3)
-            {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; 3 Arguments needed to Process. Arguments Passed: {string.Join(",", args)}. Aborting.");
-
-                return null;
-            }
-
-            var extractorType = args[0];           
-            var tableName = args[1];
-            var env = args[2];
+            var ManagerType = string.IsNullOrEmpty(commandLineArgs["managerType"]) == false ? commandLineArgs["managerType"] : "ODSManager";
+            var tableName = string.IsNullOrEmpty(commandLineArgs["tableName"]) == false ? commandLineArgs["tableName"] : "NONE";
+            var env = string.IsNullOrEmpty(commandLineArgs["env"]) == false ? commandLineArgs["env"] : "ODSManager";
+            var raveDataUrl = string.IsNullOrEmpty(commandLineArgs["raveDataUrl"]) == false ? commandLineArgs["raveDataUrl"] : "/RaveWebServices/datasets/ThxExtracts2.json";
 
             int noOfRecords = 1;
+            Int32.TryParse(commandLineArgs["noOfRecords"], out noOfRecords);
 
-            if (!(args.Length >= 4 && Int32.TryParse(args[3], out noOfRecords)))
-            {
-                noOfRecords = 1;
-            }
+            if (noOfRecords <= 0) noOfRecords = 1;
 
 
-            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {extractorType}; tableName {tableName}; env {env};");
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: extractorType {ManagerType}; tableName {tableName}; env {env};");
 
-            if (extractorType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
+            if (ManagerType.IsNullOrEmpty() || tableName.IsNullOrEmpty() || env.IsNullOrEmpty())
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; One or more execution Parameters are empty; Aborting.");
 
                 return null;
             }
 
-            var isValid = Enum.TryParse(extractorType, true, out ExtractorTypeEnum extractorTypeToRun);
+            var isValid = Enum.TryParse(ManagerType, true, out ExtractorTypeEnum extractorTypeToRun);
 
             if (!isValid)
             {
-                _logger.LogError($"TraceId:{_appSettings.TraceId}; extractorType {extractorType} not valid; Aborting.");
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; extractorType {ManagerType} not valid; Aborting.");
 
                 return null;
             }
@@ -187,6 +188,29 @@ namespace Theradex.ODS.Extractor
             {
                 _logger.LogError($"TraceId:{_appSettings.TraceId}; TableName: {extractorInput.TableName}; Lock file {key}; Exception in ReleaseLockAsync; {ex};");
             }
+        }
+    }
+    class CommandLineArgs
+    {
+        private readonly Dictionary<string, string> argsDictionary = new Dictionary<string, string>();
+        public string this[string key] => argsDictionary.TryGetValue(key, out var value) ? value : string.Empty;
+
+        public CommandLineArgs(string[] args)
+        {
+            foreach (var arg in args)
+            {
+                var split = arg.Split(new char[] { '=' }, 2);
+                if (split.Length == 2 && split[0].StartsWith("--"))
+                {
+                    var key = split[0].Substring(2); // Remove the "--" prefix
+                    var value = split[1];
+                    argsDictionary[key] = value;
+                }
+            }
+        }
+        public bool HasRequiredArguments(params string[] requiredArgs)
+        {
+            return requiredArgs.All(arg => argsDictionary.ContainsKey(arg));
         }
     }
 }

@@ -2,7 +2,7 @@
   "profiles": {
     "devnci": {
       "commandName": "Project",
-      "commandLineArgs": "ODSManager EXTERNALUSERS dev",
+      "commandLineArgs": "ODSManager_Incremental EXTERNALUSERS dev",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ODSEnvironment": "dev-nci"
@@ -11,7 +11,7 @@
     },
     "local": {
       "commandName": "Project",
-      "commandLineArgs": "--managerType=ODSManager --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtracts2.json\" --tableName=NONE",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json\" --tableName=DATAPOINTS",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSEnvironment": "local-stack"

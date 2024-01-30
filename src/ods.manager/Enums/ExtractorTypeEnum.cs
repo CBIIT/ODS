@@ -8,6 +8,7 @@ namespace Theradex.ODS.Manager.Enums
 {
     public enum ManagerTypeEnum
     {
-        ODSManager
+        ODSManager,
+        ODSManager_Incremental
     }
 }

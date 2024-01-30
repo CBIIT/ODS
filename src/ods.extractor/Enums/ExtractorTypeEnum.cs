@@ -8,6 +8,7 @@ namespace Theradex.ODS.Extractor.Enums
 {
     public enum ExtractorTypeEnum
     {
-        ODSExtractor
+        ODSExtractor,
+        ODSExtractor_Incremental
     }
 }
