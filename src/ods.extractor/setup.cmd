@@ -32,5 +32,13 @@ aws  --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-t
                                                                                 ReadCapacityUnits=5,WriteCapacityUnits=5
 
 aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb list-tables
+aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 ls s3://ods-table-data --recursive 
+REM Delete all files from bucket and all folders recursive
+REM aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 rm --recursive s3://ods-table-data   
+
+REM Delete the bucket
+REM aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 rb --force s3://your_bucket_name
+
+REM aws s3 sync  s3://ods-table-data/dev s3://ods-table-data/uat  --profile default
 
 pause
