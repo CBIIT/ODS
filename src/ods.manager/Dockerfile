@@ -5,7 +5,7 @@ WORKDIR /app
 
 FROM mcr.microsoft.com/dotnet/sdk:7.0 AS build
 WORKDIR /src
-COPY ["ods.Manager/ods.manager.csproj", "ods.manager/"]
+COPY ["ods.manager/ods.manager.csproj", "ods.manager/"]
 COPY ["ods.models/ods.models.csproj", "ods.models/"]
 RUN dotnet restore "ods.manager/ods.manager.csproj"
 COPY . .
