@@ -196,7 +196,7 @@ namespace Theradex.ODS.Manager.Processors
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
 
             DateTime startDate = odsData.StartDate;
-            //DateTime startDate = odsData.StartDate.AddDays(-30);
+            //startDate = odsData.StartDate.AddDays(-60);
 
             DateTime endDate = startDate.AddDays(1);
             DateTime currentEndDate = DateTime.Now;

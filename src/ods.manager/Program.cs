@@ -141,7 +141,7 @@ namespace Theradex.ODS.Manager
 
                  if (environmentName.ToLower() == "local")
                  {
-                     configuration.AddSystemsManager($"/{env_}/app/odsManager/", new AWSOptions
+                     configuration.AddSystemsManager($"/{env_}/app/odsmanager/", new AWSOptions
                      {
                          DefaultClientConfig =
                             {
@@ -158,7 +158,7 @@ namespace Theradex.ODS.Manager
                      configuration.AddSystemsManager(configSource =>
                      {
                          var env = Environment.GetEnvironmentVariable("ODSManagerEnvironment");
-                         configSource.Path = $"/{env}/app/odsManager/";
+                         configSource.Path = $"/{env}/app/odsmanager/";
                          configSource.Optional = false;
                      });
                  }
