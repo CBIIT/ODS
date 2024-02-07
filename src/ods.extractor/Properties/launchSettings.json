@@ -2,7 +2,7 @@
   "profiles": {
     "devnci": {
       "commandName": "Project",
-      "commandLineArgs": "ODSExtractor EXTERNALUSERS dev",
+      "commandLineArgs": "--managerType=ODSExtractor_Incremental --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtracts2.json\" --tableName=DATAPOINTS --noofRecords=1",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ODSExtractorEnvironment": "dev-nci"
