@@ -204,7 +204,7 @@ namespace Theradex.ODS.Manager.Processors
             // Subtract one day to get the last day of the current month
             endDate = endDate.AddMilliseconds(-1);
 
-            while (startDate.Date < currentEndDate.Date)
+            while (startDate.Date <= currentEndDate.Date)
             {
                 string formattedStartDate = startDate.Date.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
                 string formattedEndDate = endDate.Date.ToString("yyyy-MM-ddTHH:mm:ss.fffffff");
