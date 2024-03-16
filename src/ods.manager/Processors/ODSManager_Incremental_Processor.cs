@@ -127,6 +127,7 @@ namespace Theradex.ODS.Manager.Processors
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; [Id :{odsmanager_table_matadata.Id}]  [Table:{odsmanager_table_matadata.TableName}] Started");
 
+                    
                     DateTime minDate = DateTime.Now;
 
                     // Deserialize JSON into a C# object
@@ -172,6 +173,11 @@ namespace Theradex.ODS.Manager.Processors
                         }
                     }
 
+                    if (!string.IsNullOrEmpty(exInput.StartFrom))
+                    {
+                        minDate = DateTime.Parse(exInput.StartFrom);
+                    }
+                    
                     ODSData oDSData = new ODSData();
                     oDSData.TableName = odsmanager_table_matadata.TableName;
                     oDSData.StartDate = minDate;

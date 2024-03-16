@@ -42,7 +42,8 @@ namespace Theradex.ODS.Manager
 
         private ManagerInput? ValidateAndParseArguments(string[] args)
         {
-            //--managerType=ODSManager --tableName=FOLDERS --env=dev --raveDataUrl="/RaveWebServices/datasets/ThxExtracts2.json"
+            //--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=2024-03-16
+            
             var commandLineArgs = new CommandLineArgs(args);
 
             if (!commandLineArgs.HasRequiredArguments(requiredArguments))
@@ -61,6 +62,7 @@ namespace Theradex.ODS.Manager
             var env = string.IsNullOrEmpty(commandLineArgs["env"]) == false ? commandLineArgs["env"] : "ODSManager";
             var raveDataUrl = string.IsNullOrEmpty(commandLineArgs["raveDataUrl"]) == false ? commandLineArgs["raveDataUrl"] : "/RaveWebServices/datasets/ThxExtracts2.json";
             var processor = string.IsNullOrEmpty(commandLineArgs["processor"]) == false ? commandLineArgs["processor"] : "ODSManager_Incremental_Processor";
+            var startFrom = string.IsNullOrEmpty(commandLineArgs["startFrom"]) == false ? commandLineArgs["startFrom"] : "";
 
 
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Execution Parameters: ManagerType {ManagerType}; tableName {tableName}; env {env};");
@@ -83,7 +85,7 @@ namespace Theradex.ODS.Manager
 
             _appSettings.Env = env;
 
-            return new ManagerInput { TableName = tableName, RaveDataUrl = raveDataUrl, ManagerType = ManagerTypeToRun };
+            return new ManagerInput { TableName = tableName, RaveDataUrl = raveDataUrl, ManagerType = ManagerTypeToRun ,StartFrom = startFrom};
         }
 
         public async Task RunAsync(string[] args)

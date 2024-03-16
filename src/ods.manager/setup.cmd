@@ -39,16 +39,7 @@ aws --endpoint-url=http://localhost:4566 --profile LocalStack ssm put-parameter 
 aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table --table-name odsmanager_table_metadata --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=10,WriteCapacityUnits=10
 aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table --table-name batch_run_control --attribute-definitions AttributeName=id,AttributeType=N --key-schema AttributeName=id,KeyType=HASH --provisioned-throughput ReadCapacityUnits=10,WriteCapacityUnits=10
 
-aws  --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table \
-                                                                            --table-name ProductReview \
-                                                                            --attribute-definitions \
-                                                                                AttributeName=UserId,AttributeType=N \
-                                                                                AttributeName=ProductName,AttributeType=S \
-                                                                            --key-schema \
-                                                                                AttributeName=UserId,KeyType=HASH \
-                                                                                AttributeName=ProductName,KeyType=RANGE \
-                                                                            --provisioned-throughput \
-                                                                                ReadCapacityUnits=5,WriteCapacityUnits=5
+aws  --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb create-table --table-name ProductReview --attribute-definitions AttributeName=UserId,AttributeType=N AttributeName=ProductName,AttributeType=S --key-schema AttributeName=UserId,KeyType=HASH AttributeName=ProductName,KeyType=RANGE --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
 
 aws --endpoint-url=http://localhost:4566 --profile LocalStack dynamodb list-tables
 aws --endpoint-url=http://localhost:4566 --profile LocalStack s3 ls s3://ods-table-data --recursive 

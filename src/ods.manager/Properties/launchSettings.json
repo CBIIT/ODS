@@ -11,7 +11,7 @@
     },
     "local": {
       "commandName": "Project",
-      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSEnvironment": "local-stack"

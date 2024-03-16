@@ -11,5 +11,7 @@ namespace Theradex.ODS.Manager.Models
         public string RaveDataUrl { get; set; } = "/RaveWebServices/datasets/ThxExtracts2.json";
         public ManagerTypeEnum ManagerType { get; set; } //= ManagerTypeEnum.ODSManager; // Replace DefaultValue with your desired default value
 
+        public string StartFrom { get; set; } 
+
     }
 }
