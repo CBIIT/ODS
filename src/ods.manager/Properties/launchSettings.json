@@ -16,6 +16,14 @@
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSEnvironment": "local-stack"
       }
+    },
+    "local-from-2023-11-01": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=2023-11-01",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSEnvironment": "local-stack"
+      }
     }
   }
 }
