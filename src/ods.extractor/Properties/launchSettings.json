@@ -16,6 +16,14 @@
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSExtractorEnvironment": "local-stack"
       }
+    },
+    "UNITDICTIONARYENTRIES": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSExtractor_Incremental --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtracts2.json\" --tableName=UNITDICTIONARYENTRIES --noofRecords=1",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSExtractorEnvironment": "local-stack"
+      }
     }
   }
 }

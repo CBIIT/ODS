@@ -78,7 +78,9 @@ namespace Theradex.ODS.Manager.Processors
                                 "SUBJECTSTATUSCATEGORYR",
                                 "LABUNITCONVERSIONS",
                                 "LABUPDATEQUEUE",
-                                "UPLOADDATAPOINTS"
+                                "UPLOADDATAPOINTS",
+                                "UNITDICTIONARIES",
+                                "UNITDICTIONARYENTRIES"
                             };
 
         const int MaxPageData = 50000;

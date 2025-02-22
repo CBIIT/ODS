@@ -19,7 +19,31 @@
     },
     "local-from-2023-11-01": {
       "commandName": "Project",
-      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=2023-11-01",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=2019-07-01",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSEnvironment": "local-stack"
+      }
+    },
+    "local-from-2024-02-01": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --startFrom=2024-02-01",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSEnvironment": "local-stack"
+      }
+    },
+    "local-UnitDictionaries": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=UNITDICTIONARIES --startFrom=2024-08-18",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSEnvironment": "local-stack"
+      }
+    },
+    "local-UnitDictionaryEntries": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=NONE --managerType=ODSManager_Incremental  --env=dev --raveDataUrl=/RaveWebServices/datasets/ThxExtractsByUpdatedDate.json --tableName=UNITDICTIONARYENTRIES --startFrom=2024-08-18",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSEnvironment": "local-stack"

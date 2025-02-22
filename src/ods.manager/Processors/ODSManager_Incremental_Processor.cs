@@ -78,7 +78,9 @@ namespace Theradex.ODS.Manager.Processors
                                 "SUBJECTSTATUSCATEGORYR",
                                 "LABUNITCONVERSIONS",
                                 "LABUPDATEQUEUE",
-                                "UPLOADDATAPOINTS"
+                                "UPLOADDATAPOINTS",
+                                "UNITDICTIONARIES",
+                                "UNITDICTIONARYENTRIES"
                             };
 
         const int MaxPageData = 50000;
@@ -154,7 +156,7 @@ namespace Theradex.ODS.Manager.Processors
                         if (!isMinDateValid)
                         {
                             _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Min date not valid.");
-                            minDate = new DateTime(2000, 013, 01);
+                            minDate = new DateTime(2000, 01, 01);
                             _logger.LogError($"TraceId:{_appSettings.TraceId}; [Id: {odsmanager_table_matadata.Id}] [Table:{odsmanager_table_matadata.TableName}] - Defaulting to 01/01/2000");
                         }
 
@@ -245,7 +247,7 @@ namespace Theradex.ODS.Manager.Processors
                 catch (Exception ex)
                 {
                     _logger.LogInformation($"TraceId:{_appSettings.TraceId}; - Error processing ${ex.ToString()}.");
-                    throw;
+                    throw;  
                 }
 
                 startDate = endDate.AddMilliseconds(1);
