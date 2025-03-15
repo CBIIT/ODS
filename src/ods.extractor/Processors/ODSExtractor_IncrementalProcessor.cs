@@ -72,6 +72,8 @@ namespace Theradex.ODS.Extractor.Processors
                     }
 
                     var brcNext = await _odsRepository.GetNextBatchAsync(odsData.TableName.ToUpper());
+                    
+                    //var brcNext = await _odsRepository.GetByIdAsync(314493);
 
                     if (brcNext == null)
                     {
@@ -113,7 +115,16 @@ namespace Theradex.ODS.Extractor.Processors
             _logger.LogInformation($"TraceId:{_appSettings.TraceId};        Current Id : " + batchRunControl.Id.ToString());
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + batchRunControl.ApiStartDate);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId};   Current Enddate : " + batchRunControl.ApiEndDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId};   RaveDataUrl : " + batchRunControl.RaveDataUrl);
             _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
+
+            if (StringFunctions.IsNullOrEmpty(batchRunControl.RaveDataUrl))
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; RaveDataUrl is empty; Aborting.");
+                return batchRunControl;
+            }
+
+            //await _odsRepository.StartedAsync(batchRunControl);
 
             // Create a policy for retry with exponential back-off
             var retryPolicy = Policy
@@ -142,9 +153,51 @@ namespace Theradex.ODS.Extractor.Processors
 
             string responseDataFileName = $"{odsData.TableName}_{batchRunControl.Id}_{formattedStartDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_TO_{formattedEndDate.Replace(".", "_").Replace(":", "_").Replace("-", "_")}_#PAGENUMBER#";
 
-            int pageSize = 50000; //odsData.RecordCount; // Set your desired page size
+            ///RaveWebServices/datasets/ThxExtractsByUpdatedDate.json?PageSize=50000&PageNumber=17&StartDate=2025-02-18T00:00:00.0000000&EndDate=2025-02-18T00:00:00.0000000&TableName=DATAPOINTS
+
+            string[] parts = batchRunControl.RaveDataUrl.Split('?');
+            string baseUrl = parts[0]; // This will contain "RaveWebServices/datasets/ThxExtracts2.json"
+            string queryString = parts.Length > 1 ? parts[1] : string.Empty; // This will contain the query string
+            var queryParams = System.Web.HttpUtility.ParseQueryString(queryString);
+            int pageSize = 50000;
+            int.TryParse(queryParams["PageSize"], out pageSize);
+            int pageNumber = 1;
+            int.TryParse(queryParams["PageNumber"], out pageNumber);
+            pageNumber = pageNumber - 1;
+            DateTime startDate = DateTime.MinValue;
+            DateTime.TryParse(queryParams["StartDate"], out startDate);
+            DateTime endDate = DateTime.MinValue;
+            DateTime.TryParse(queryParams["EndDate"], out endDate);
+
+            string tableName = queryParams["TableName"];
+            if (string.IsNullOrEmpty(tableName))
+            {
+                _logger.LogError($"TraceId:{_appSettings.TraceId}; TableName is empty; Aborting.");
+                return batchRunControl;
+            }
+            odsData.TableName = tableName;
+            odsData.URL = baseUrl;
+            odsData.StartDate = startDate;
+            odsData.EndDate = endDate;
+            odsData.RecordCount = pageSize;
+            odsData.NoOfRecords = batchRunControl.NoOfRecords;
+
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current TableName : " + odsData.TableName);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId};        Current Id : " + batchRunControl.Id.ToString());
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + batchRunControl.ApiStartDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId};   Current Enddate : " + batchRunControl.ApiEndDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId};   RaveDataUrl : " + batchRunControl.RaveDataUrl);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; -------------------------------------");
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current PageSize : " + pageSize);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current PageNumber : " + pageNumber);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current StartDate : " + startDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current EndDate : " + endDate);
+            _logger.LogInformation($"TraceId:{_appSettings.TraceId}; Current TableName : " + tableName);
+
+
+            //int pageSize = 50000; //odsData.RecordCount; // Set your desired page size
             var totalPages = 10000;
-            int pageNumber = 1; // Initialize pageNumber
+            //int pageNumber = 1; // Initialize pageNumber
 
             Payloads payloads = new Payloads();
             payloads.Payload = new List<PayloadItem>();

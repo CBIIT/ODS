@@ -24,6 +24,14 @@
         "ASPNETCORE_ENVIRONMENT": "Local",
         "ODSExtractorEnvironment": "local-stack"
       }
+    },
+    "DATAPOINTS": {
+      "commandName": "Project",
+      "commandLineArgs": "--managerType=ODSExtractor_Incremental --env=dev --raveDataUrl=\"/RaveWebServices/datasets/ThxExtracts2.json\" --tableName=DATAPOINTS --noofRecords=1",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Local",
+        "ODSExtractorEnvironment": "local-stack"
+      }
     }
   }
 }
