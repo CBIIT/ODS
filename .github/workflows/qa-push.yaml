@@ -1,0 +1,149 @@
+name: Promote Image to QA
+
+run-name: Promote Image to QA - Version (${{ inputs.version }}) and Workflow Run Id (${{ inputs.run_id }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to promote'
+        required: true
+      run_id:
+        description: 'Workflow Run ID to download artifact from'
+        required: true
+
+jobs:
+  promote_to_qa:
+    name: Promote Image to QA ECR
+    permissions: write-all
+    runs-on: ubuntu-latest
+    environment:
+      name: qa
+    steps:
+      # Manual Approval (if required)
+      # - name: Wait_for_approval Action
+      #   uses: arun291091/wait_for_approval_gha@v1
+      #   with:
+      #     base_repository_branch: main
+      #     github_org: Theradex
+      #     repository_name: nci-web-reporting
+      #     pr_reviewer: gtheradex,mgrathi,wfarbman  # Update reviewers if necessary
+      #     time_limit: 400
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      # Download Docker Image Artifact
+      - name: Download Docker Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-${{ github.event.inputs.version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.inputs.run_id }}
+
+      # Load Docker Image from Artifact
+      - name: Load Docker Image from Artifact
+        run: |
+          docker load -i web-reporting_${{ github.event.inputs.version }}.tar.gz
+      # Configure AWS Credentials for QA
+      - name: Configure AWS Credentials for QA
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ARN_DEV }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+
+      # Check if image exists in ECR QA
+      - name: Check if image exists in ECR QA
+        id: image-ecr-qa
+        uses: theradex/action-container-tools/check-image-tag-ecr@v1
+        with:
+          container-repository-name: ${{ vars.CONTAINER_REPOSITORY_NAME_QA }}
+          container-image-tag: ${{ github.event.inputs.version }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-to-assume:  ${{ secrets.AWS_ARN_QA }}
+
+      # Echo Image tag found
+      - name: Echo Image tag found
+        run: |
+          if [ "${{ steps.image-ecr-qa.outputs.image-tag-exists }}" = "true" ]; then
+            echo "::warning::Image tag exists: ${{ steps.image-ecr-qa.outputs.image-tag-exists }}"
+          else
+            echo "Image tag does not exist: ${{ steps.image-ecr-qa.outputs.image-tag-exists }}"
+          fi
+
+      # Log in to Amazon ECR (QA)
+      - name: Log in to Amazon ECR (QA)
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_URI_QA }}
+
+      # Tag and Push Docker Image to ECR (QA)
+      - name: Tag and Push Docker Image to ECR (QA)
+        run: |
+          docker tag ${{ secrets.ECR_URI_DEV }}:${{ github.event.inputs.version }} ${{ secrets.ECR_URI_QA }}:${{ github.event.inputs.version }}
+          docker tag ${{ secrets.ECR_URI_DEV }}:${{ github.event.inputs.version }} ${{ secrets.ECR_URI_QA }}:latest
+          docker push ${{ secrets.ECR_URI_QA }}:${{ github.event.inputs.version }}
+          docker push ${{ secrets.ECR_URI_QA }}:latest
+
+      - name: Download task definition
+        run: |
+            aws ecs describe-task-definition --task-definition nci-oars-qa1-taskdefinition --query taskDefinition > task-definition.json
+            
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: web
+          image: ${{ secrets.ECR_URI_QA }}:latest
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v1
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: nci-oars-qa1-service
+          cluster: nci-oars-qa1-cluster
+          wait-for-service-stability: true
+
+      # Output Success Message
+      - name: Promotion Successful
+        run: echo "Image version ${{ github.event.inputs.version }} has been promoted to QA ECR."
+      
+      - name: Capture Workflow Run ID
+        id: get_run_id
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const runId = context.runId;
+            core.setOutput('run_id', runId);
+
+      - name: Add Summary
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ github.event.inputs.version  }}';
+            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            core.summary.addHeading("Deployment to QA").addTable([
+              [{ data: "Version", header: true }, { data: "Run ID", header: true }],
+              [version, runId],
+            ])
+            await core.summary.write()
+
+      # Trigger Approval Workflow for Next Environment
+      - name: Trigger Approval for Next Environment
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ github.event.inputs.version }}';
+            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            console.log(`Version: ${version}, Run ID: ${runId}`);
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'uat-push.yaml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                run_id: runId
+              }
+            });

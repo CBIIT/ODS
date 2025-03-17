@@ -1,0 +1,279 @@
+name: Promote ODS Image
+
+on:
+  workflow_dispatch:
+    inputs:
+      microservice:
+        description: 'Which microservice image to promote'
+        required: true
+        type: choice
+        options:
+          - Manager
+          - Extrator
+        default: Extrator
+
+      source_env:
+        description: 'Source environment'
+        required: true
+        type: choice
+        options:
+          - sandbox
+          - dev
+          - qa
+          - uat
+        default: dev
+
+      target_env:
+        description: 'Target environment'
+        required: true
+        type: choice
+        options:
+          - dev
+          - qa
+          - uat
+          - prod
+        default: qa
+        
+      image_tag:
+        description: 'Image tag to promote (defaults to "latest")'
+        required: false
+        default: 'latest'
+        type: string
+
+jobs:
+  validate:
+    name: Validate Promotion Request
+    runs-on: ubuntu-latest
+    permissions: write-all
+    outputs:
+      source_env: ${{ github.event.inputs.source_env }}
+      target_env: ${{ github.event.inputs.target_env }}
+      microservice: ${{ github.event.inputs.microservice }}
+      image_tag: ${{ github.event.inputs.image_tag }}
+      
+    steps:
+      - name: Checkout code (for access to workflow files)
+        uses: actions/checkout@v4
+      
+      - name: Validate Environment Promotion Path
+        run: |
+          # Prevent promoting backward (e.g., from qa to dev)
+          ENV_ORDER=("sandbox" "dev" "qa" "uat" "prod")
+          
+          # Find positions in the array
+          SOURCE_POS=-1
+          TARGET_POS=-1
+          
+          for i in "${!ENV_ORDER[@]}"; do
+            if [ "${ENV_ORDER[$i]}" = "${{ github.event.inputs.source_env }}" ]; then
+              SOURCE_POS=$i
+            fi
+            if [ "${ENV_ORDER[$i]}" = "${{ github.event.inputs.target_env }}" ]; then
+              TARGET_POS=$i
+            fi
+          done
+          
+          if [ $SOURCE_POS -ge $TARGET_POS ]; then
+            echo "❌ ERROR: Invalid promotion path. Cannot promote from ${{ github.event.inputs.source_env }} to ${{ github.event.inputs.target_env }}"
+            echo "Promotion must follow the path: sandbox → dev → qa → uat → prod"
+            exit 1
+          fi
+          
+          echo "✅ Valid promotion path: ${{ github.event.inputs.source_env }} → ${{ github.event.inputs.target_env }}"
+
+  promote_image_to_target_env:
+    name: Promote Docker Image Between Environments
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions: write-all
+    environment: ${{ needs.validate.outputs.target_env }}
+    
+    steps:
+      - name: Checkout code (for access to workflow files)
+        uses: actions/checkout@v4
+        
+      - name: Validate Environment Promotion Path
+        run: |
+          # Prevent promoting backward (e.g., from qa to dev)
+          ENV_ORDER=("sandbox" "dev" "qa" "uat" "prod")
+          
+          # Find positions in the array
+          SOURCE_POS=-1
+          TARGET_POS=-1
+          
+          for i in "${!ENV_ORDER[@]}"; do
+            if [ "${ENV_ORDER[$i]}" = "${{ github.event.inputs.source_env }}" ]; then
+              SOURCE_POS=$i
+            fi
+            if [ "${ENV_ORDER[$i]}" = "${{ github.event.inputs.target_env }}" ]; then
+              TARGET_POS=$i
+            fi
+          done
+          
+          if [ $SOURCE_POS -ge $TARGET_POS ]; then
+            echo "❌ ERROR: Invalid promotion path. Cannot promote from ${{ github.event.inputs.source_env }} to ${{ github.event.inputs.target_env }}"
+            echo "Promotion must follow the path: sandbox → dev → qa → uat → prod"
+            exit 1
+          fi
+          
+          echo "✅ Valid promotion path: ${{ github.event.inputs.source_env }} → ${{ github.event.inputs.target_env }}"
+
+      - name: Determine Source and Target AWS Roles
+        id: set_aws_roles
+        run: |
+          # Source environment role
+          if [ "${{ github.event.inputs.source_env }}" = "sandbox" ]; then
+            echo "SOURCE_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.source_env }}" = "dev" ]; then
+            echo "SOURCE_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.source_env }}" = "qa" ]; then
+            echo "SOURCE_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.source_env }}" = "uat" ]; then
+            echo "SOURCE_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
+          fi
+          
+          # Target environment role
+          if [ "${{ github.event.inputs.target_env }}" = "dev" ]; then
+            echo "TARGET_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.target_env }}" = "qa" ]; then
+            echo "TARGET_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.target_env }}" = "uat" ]; then
+            echo "TARGET_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.target_env }}" = "prod" ]; then
+            echo "TARGET_AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_PROD }}" >> $GITHUB_ENV
+          fi
+
+      - name: Determine ECR Repositories and Lambda Functions
+        run: |
+          # Source ECR URI - Alerts
+          if [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.source_env }}" = "sandbox" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_ALERTS_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.source_env }}" = "dev" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_ALERTS_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.source_env }}" = "qa" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_ALERTS_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.source_env }}" = "uat" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_ALERTS_UAT }}" >> $GITHUB_ENV
+          
+          # Source ECR URI - Global
+          elif [ "${{ github.event.inputs.microservice }}" = "Global" ] && [ "${{ github.event.inputs.source_env }}" = "sandbox" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_GLOBAL_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Global" ] && [ "${{ github.event.inputs.source_env }}" = "dev" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_GLOBAL_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Global" ] && [ "${{ github.event.inputs.source_env }}" = "qa" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_GLOBAL_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Global" ] && [ "${{ github.event.inputs.source_env }}" = "uat" ]; then
+            echo "SOURCE_ECR_URI=${{ secrets.ECR_URI_GLOBAL_UAT }}" >> $GITHUB_ENV
+          
+          else
+            echo "❌ ERROR: Invalid source microservice/environment combination"
+            exit 1
+          fi
+          
+          # Target ECR URI and Lambda Function - Alerts
+          if [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.target_env }}" = "dev" ]; then
+            echo "TARGET_ECR_URI=${{ secrets.ECR_URI_ALERTS_DEV }}" >> $GITHUB_ENV
+            echo "TARGET_LAMBDA_FUNCTION=IWRS-NCI-Services-Alert" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.target_env }}" = "qa" ]; then
+            echo "TARGET_ECR_URI=${{ secrets.ECR_URI_ALERTS_QA }}" >> $GITHUB_ENV
+            echo "TARGET_LAMBDA_FUNCTION=IWRS-NCI-Services-Alert" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.target_env }}" = "uat" ]; then
+            echo "TARGET_ECR_URI=${{ secrets.ECR_URI_ALERTS_UAT }}" >> $GITHUB_ENV
+            echo "TARGET_LAMBDA_FUNCTION=IWRS-NCI-Services-Alert" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "Alerts" ] && [ "${{ github.event.inputs.target_env }}" = "prod" ]; then
+            echo "TARGET_ECR_URI=${{ secrets.ECR_URI_ALERTS_PROD }}" >> $GITHUB_ENV
+            echo "TARGET_LAMBDA_FUNCTION=IWRS-NCI-Services-Alert" >> $GITHUB_ENV
+                    
+          else
+            echo "❌ ERROR: Invalid target microservice/environment combination"
+            exit 1
+          fi
+          
+          echo "✅ Source ECR URI: $SOURCE_ECR_URI"
+          echo "✅ Target ECR URI: $TARGET_ECR_URI"
+          echo "✅ Target Lambda Function: $TARGET_LAMBDA_FUNCTION"
+
+      # Configure source AWS credentials for pulling the image
+      - name: Configure AWS Credentials (Source)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.SOURCE_AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      
+      # Log in to source ECR
+      - name: Log in to Source Amazon ECR
+        id: source-ecr-login
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
+          docker login --username AWS --password-stdin ${{ env.SOURCE_ECR_URI }}
+          
+          # Store registry domain for later use with docker tag
+          SOURCE_ECR_DOMAIN=$(echo $SOURCE_ECR_URI | cut -d/ -f1)
+          echo "SOURCE_ECR_DOMAIN=$SOURCE_ECR_DOMAIN" >> $GITHUB_ENV
+      
+      # Pull the image from source ECR
+      - name: Pull Image from Source ECR
+        run: |
+          echo "Pulling image: ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }}"
+          docker pull ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }}
+          
+          # Get image digest for verification
+          SOURCE_IMAGE_DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }} | cut -d@ -f2)
+          echo "SOURCE_IMAGE_DIGEST=$SOURCE_IMAGE_DIGEST" >> $GITHUB_ENV
+          echo "Pulled image with digest: $SOURCE_IMAGE_DIGEST"
+      
+      # Re-tag the image for target ECR
+      - name: Tag Image for Target ECR
+        run: |
+          echo "Tagging image for target ECR"
+          docker tag ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }} ${{ env.TARGET_ECR_URI }}:${{ github.event.inputs.image_tag }}
+          docker tag ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }} ${{ env.TARGET_ECR_URI }}:latest
+      
+      # Configure target AWS credentials for pushing the image
+      - name: Configure AWS Credentials (Target)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.TARGET_AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+      
+      # Log in to target ECR
+      - name: Log in to Target Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | \
+          docker login --username AWS --password-stdin ${{ env.TARGET_ECR_URI }}
+      
+      # Push the image to target ECR
+      - name: Push Image to Target ECR
+        run: |
+          echo "Pushing image to target ECR: ${{ env.TARGET_ECR_URI }}:${{ github.event.inputs.image_tag }}"
+          docker push ${{ env.TARGET_ECR_URI }}:${{ github.event.inputs.image_tag }}
+          docker push ${{ env.TARGET_ECR_URI }}:latest
+          
+          # Verify the image digest in target ECR
+          aws ecr describe-images \
+            --repository-name $(echo ${{ env.TARGET_ECR_URI }} | cut -d/ -f2) \
+            --image-ids imageTag=${{ github.event.inputs.image_tag }} \
+            --query 'imageDetails[0].imageDigest' \
+            --output text
+      
+      # Update Lambda function in target environment
+      - name: Update Lambda Function in Target Environment
+        run: |
+          echo "Updating Lambda function: ${{ env.TARGET_LAMBDA_FUNCTION }}"
+          aws lambda update-function-code \
+            --function-name ${{ env.TARGET_LAMBDA_FUNCTION }} \
+            --image-uri ${{ env.TARGET_ECR_URI }}:latest
+          
+          # Wait for the Lambda update to complete
+          aws lambda wait function-updated \
+            --function-name ${{ env.TARGET_LAMBDA_FUNCTION }}
+          
+          echo "✅ Successfully updated Lambda function with promoted image"
+      
+      # Create success notification
+      - name: Notify Success
+        run: |
+          echo "✅ Successfully promoted ${{ github.event.inputs.microservice }} image from ${{ github.event.inputs.source_env }} to ${{ github.event.inputs.target_env }}"
+          echo "   Source Image: ${{ env.SOURCE_ECR_URI }}:${{ github.event.inputs.image_tag }}"
+          echo "   Target Image: ${{ env.TARGET_ECR_URI }}:${{ github.event.inputs.image_tag }}"
+          echo "   Lambda Function: ${{ env.TARGET_LAMBDA_FUNCTION }}"

@@ -1,0 +1,4 @@
+# Specify owners for specific directories
+.github/workflows/**  @mgrathi @wfarbman @gtheradex
+
+* @mgrathi @wfarbman

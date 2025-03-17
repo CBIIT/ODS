@@ -80,7 +80,9 @@ namespace Theradex.ODS.Manager.Processors
                                 "LABUPDATEQUEUE",
                                 "UPLOADDATAPOINTS",
                                 "UNITDICTIONARIES",
-                                "UNITDICTIONARYENTRIES"
+                                "UNITDICTIONARYENTRIES",
+                                "CLINICALSIGNIFICANCE",
+                                "CLINICALSIGNIFICANCECODES"
                             };
 
         const int MaxPageData = 50000;

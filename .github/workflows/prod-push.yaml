@@ -1,0 +1,122 @@
+name: Promote Image to Production
+
+run-name: Promote Image to Production - Version (${{ inputs.version }}) and Workflow Run Id (${{ inputs.run_id }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to promote'
+        required: true
+      run_id:
+        description: 'Workflow Run ID to download artifact from'
+        required: true
+
+jobs:
+  promote_to_prod:
+    name: Promote Image to Production ECR
+    permissions: write-all
+    runs-on: ubuntu-latest
+    environment:
+      name: prod
+    steps:
+      # Manual Approval
+      # - name: Wait_for_approval Action
+      #   uses: arun291091/wait_for_approval_gha@v1
+      #   with:
+      #     base_repository_branch: main
+      #     github_org: Theradex
+      #     repository_name: nci-web-reporting
+      #     pr_reviewer: gtheradex,mgrathi,wfarbman  # Update reviewers if necessary
+      #     time_limit: 300
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Download Docker Image Artifact
+      - name: Download Docker Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-image-${{ github.event.inputs.version }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ github.repository }}
+          run-id: ${{ github.event.inputs.run_id }}
+
+      # Load Docker Image from Artifact
+      - name: Load Docker Image from Artifact
+        run: |
+          docker load -i web-reporting_${{ github.event.inputs.version }}.tar.gz
+
+      # Configure AWS Credentials for Production
+      - name: Configure AWS Credentials for Production
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_PROD }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      # Check if image exists in ECR Production
+      - name: Check if image exists in ECR Production
+        id: image-ecr-prod
+        uses: theradex/action-container-tools/check-image-tag-ecr@v1
+        with:
+          container-repository-name: ${{ vars.CONTAINER_REPOSITORY_NAME_PROD }}
+          container-image-tag: ${{ github.event.inputs.version }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-to-assume:  ${{ secrets.AWS_ARN_PROD }}
+      
+      # Echo Image tag found
+      - name: Echo Image tag found
+        run: |
+          if [ "${{ steps.image-ecr-prod.outputs.image-tag-exists }}" = "true" ]; then
+            echo "::warning::Image tag exists: ${{ steps.image-ecr-prod.outputs.image-tag-exists }}"
+          else
+            echo "Image tag does not exist: ${{ steps.image-ecr-prod.outputs.image-tag-exists }}"
+          fi
+
+      # Log in to Amazon ECR (Production)
+      - name: Log in to Amazon ECR (Production)
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} | docker login --username AWS --password-stdin ${{ secrets.ECR_URI_PROD }}
+
+      # Tag and Push Docker Image to ECR (Production)
+      - name: Tag and Push Docker Image to ECR (Production)
+        run: |
+          docker tag ${{ secrets.ECR_URI_DEV }}:${{ github.event.inputs.version }} ${{ secrets.ECR_URI_PROD }}:${{ github.event.inputs.version }}
+          docker tag ${{ secrets.ECR_URI_DEV }}:${{ github.event.inputs.version }} ${{ secrets.ECR_URI_PROD }}:latest
+          docker push ${{ secrets.ECR_URI_PROD }}:${{ github.event.inputs.version }}
+          docker push ${{ secrets.ECR_URI_PROD }}:latest
+      
+      - name: Download task definition
+        run: |
+            aws ecs describe-task-definition --task-definition nci-oars-production-taskdefinition --query taskDefinition > task-definition.json
+            
+      - name: Fill in the new image ID in the Amazon ECS task definition
+        id: task-def
+        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        with:
+          task-definition: task-definition.json
+          container-name: web
+          image: ${{ secrets.ECR_URI_PROD }}:latest
+
+      - name: Deploy Amazon ECS task definition
+        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        with:
+          task-definition: ${{ steps.task-def.outputs.task-definition }}
+          service: nci-oars-production-service
+          cluster: nci-oars-production-cluster
+          wait-for-service-stability: true
+
+      - name: Add Summary
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ github.event.inputs.version  }}';
+            const runId = '${{ context.runId }}';
+            core.summary.addHeading("Deployment to PROD").addTable([
+              [{ data: "Version", header: true }, { data: "Run ID", header: true }],
+              [version, runId],
+            ])
+            await core.summary.write()
+
+      # Output Success Message
+      - name: Promotion Successful
+        run: echo "Image version ${{ github.event.inputs.version }} has been promoted to Production ECR."
