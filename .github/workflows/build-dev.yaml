@@ -188,10 +188,10 @@ jobs:
       - name: Build Docker Image
         run: |
           # Navigate to the root of the project
-          cd ../..
+          cd ..
           # Build the Docker image with environment-specific tag
           docker build \
-            -f ${{ env.WORK_DIR }}/Dockerfile \
+            -f ${{ github.event.inputs.microservice }}/Dockerfile \
             -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
