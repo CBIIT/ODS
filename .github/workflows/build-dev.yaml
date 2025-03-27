@@ -191,7 +191,7 @@ jobs:
           cd ..
           # Build the Docker image with environment-specific tag
           docker build \
-            -f ${{ github.event.inputs.microservice }}/Dockerfile \
+            -f ./${{ github.event.inputs.microservice }}/Dockerfile \
             -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
