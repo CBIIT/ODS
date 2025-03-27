@@ -187,20 +187,17 @@ jobs:
       # 11) Build Docker Image
       - name: Build Docker Image
         run: |
-          # Display current working directory and list files for debugging
-          pwd
+          # Set up the correct working directory structure for Docker build
+          echo "Building Docker image from directory: $WORK_DIR"
+          echo "Current directory structure:"
           ls -la
           
-          # Make sure the Dockerfile exists
-          if [ ! -f "./${{ env.WORK_DIR }}/Dockerfile" ]; then
-            echo "⚠️ Dockerfile not found at expected path: ./${{ env.WORK_DIR }}/Dockerfile"
-            echo "Listing directories to debug:"
-            find . -name "Dockerfile" -type f
-          fi
+          # The Dockerfile expects a specific structure, so we need to build from the src directory
+          cd src
           
           # Build the Docker image with environment-specific tag
           docker build \
-            -f ${{ env.WORK_DIR }}/Dockerfile \
+            -f ${{ github.event.inputs.microservice }}/Dockerfile \
             -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
