@@ -364,7 +364,7 @@ jobs:
           role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
           role-duration-seconds: 3600
 
-      # 8) Map environment => AWS role & ECR repo + Lambda function name
+      # 2) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
         run: |
@@ -434,7 +434,7 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
             | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
-      # 2) Log deployment information
+      # 3) Log deployment information
       - name: Log Deployment Info
         run: |
           echo "✅ Successfully pushed image to ECR: ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.aws_env }}-latest"
@@ -445,7 +445,7 @@ jobs:
           echo "Microservice: ${{ needs.push_to_ecr.outputs.microservice }}"
           echo "ECR URI: ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag }}"
 
-      # 3) Create GitHub Summary
+      # 4) Create GitHub Summary
       - name: Add Summary
         if: ${{ always() }}
         uses: actions/github-script@v6
@@ -465,11 +465,24 @@ jobs:
                 [version, runId, env, microservice, repoName],
               ])
               .addHeading("Image Details")
-              .addRaw(`ECR URI: <span class="math-inline">\{ecr\}\:</span>{version}`)
-              .addRaw(`Latest Tag: <span class="math-inline">\{ecr\}\:</span>{env}-latest`)
+              .addRaw(`ECR URI: ${ecr}:${version}`)
+              .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
 
-      # Trigger Approval Workflow for Next Environment
+      # 5) (Optional) Save Docker Image as Artifact
+      - name: Save Docker Image as Artifact
+        run: |
+          echo "Saving Docker image ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag  }} as an artifact"
+          docker save ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag }} | gzip > ods_${{ needs.push_to_ecr.outputs.version_tag }}.tar.gz
+
+      # 6) (Optional) Upload Docker Image Artifact
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ needs.push_to_ecr.outputs.version_tag }}
+          path: ods_${{ needs.push_to_ecr.outputs.version_tag }}.tar.gz
+
+      # 7) Trigger Approval Workflow for Next Environment
       - name: Trigger Approval for Next Environment
         if: ${{ always() }}
         uses: actions/github-script@v6
