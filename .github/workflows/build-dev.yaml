@@ -36,6 +36,9 @@ on:
 jobs:
   print_inputs:
     runs-on: ubuntu-latest
+    permissions: write-all
+    environment:
+      name: dev        
     steps:
       - name: Print Inputs
         run: |
@@ -114,6 +117,19 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
 
+      - name: Capture Workflow Run ID
+        id: get_run_id
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const runId = context.runId;
+            core.setOutput('run_id', runId);
+    
+      # Print Version and Run ID in comments
+      - name: Print Version and Run ID
+        run: |
+          echo "Version: ${{ steps.semver.outputs.version_tag  }}"
+          echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
           
       # 8) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
@@ -197,9 +213,7 @@ jobs:
         working-directory: ${{ env.WORK_DIR }}
         run: |
           # Navigate to the root of the project
-          ls -l
           cd ..
-          pwd
           # Build the Docker image with environment-specific tag
           docker build \
             -f ./${{ github.event.inputs.microservice }}/Dockerfile \
@@ -213,7 +227,7 @@ jobs:
         id: approval
         with:
           script: |
-            const result = await github.rest.actions.createWorkflowRun({
+            const result = await github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'manual-approval.yaml',
@@ -225,24 +239,33 @@ jobs:
               }
             });
 
-            console.log(result);
-            if (result.status !== 201) {
+            console.log("Approval workflow dispatch result:", result); // More descriptive log
+            if (result.status !== 204) { // Correct status code check
               core.setFailed(`Failed to trigger approval workflow: ${result.status}`);
             }
-  
+ 
       - name: Wait for Approval
         uses: actions/github-script@v6
         if: ${{ always() && needs.build_test_and_deploy.result == 'success' }}
+        id: wait_approval
         with:
           script: |
-            const approvalRunId = ${{ fromJson(steps.approval.result).data.workflow_runs[0].id }};
+            const approvalRunId = (await github.rest.actions.listWorkflowRunsForWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'manual-approval.yaml',
+            })).data.workflow_runs[0].id; // Get the latest run ID
+
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
             let approvalState = 'pending';
             let approvalConclusion = null;
+            let timeout = 3600; // Timeout in seconds (1 hour)
+            let elapsed = 0;
+            const interval = 10; // Check interval in seconds
 
-            while (approvalState !== 'completed') {
+            while (approvalState !== 'completed' && elapsed < timeout) {
               const approvalCheck = await github.rest.actions.getWorkflowRun({
                 owner: owner,
                 repo: repo,
@@ -253,15 +276,16 @@ jobs:
               approvalConclusion = approvalCheck.data.conclusion;
 
               if (approvalState !== 'completed') {
-                console.log(`Approval status: ${approvalState}, waiting...`);
-                await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+                console.log(`Approval status: ${approvalState}, waiting... (${elapsed}s elapsed)`);
+                await new Promise(resolve => setTimeout(resolve, interval * 1000));
+                elapsed += interval;
               }
             }
 
             if (approvalConclusion !== 'success') {
-              core.setFailed(`Approval failed with conclusion: ${approvalConclusion}`);
+              core.setFailed(`Approval failed or timed out with conclusion: ${approvalConclusion} after ${elapsed} seconds.`);
             } else {
-                console.log("Approval successful, proceeding with deployment...");
+              console.log("Approval successful, proceeding with deployment...");
             }
                           
       # # 12) Push Docker Image to ECR
@@ -281,20 +305,6 @@ jobs:
           echo "Microservice: ${{ github.event.inputs.microservice }}"
           echo "ECR URI: ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }}"
 
-      - name: Capture Workflow Run ID
-        id: get_run_id
-        uses: actions/github-script@v6
-        with:
-          script: |
-            const runId = context.runId;
-            core.setOutput('run_id', runId);
-    
-      # Print Version and Run ID in comments
-      - name: Print Version and Run ID
-        run: |
-          echo "Version: ${{ steps.semver.outputs.version_tag  }}"
-          echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
-                  
       # 14) Create GitHub Summary
       - name: Add Summary
         if: ${{ always() }}
