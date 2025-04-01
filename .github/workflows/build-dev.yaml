@@ -34,6 +34,15 @@ on:
         default: '9.0.x'
 
 jobs:
+  print_inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print Inputs
+        run: |
+          echo "Microservice: ${{ github.event.inputs.microservice }}"
+          echo "AWS Environment: ${{ github.event.inputs.aws_env }}"
+          echo "Dotnet Version: ${{ github.event.inputs.dotnet_version }}"
+
   build_test_and_deploy:
     name: Build, Test, Push to ECR 
     runs-on: ubuntu-latest
