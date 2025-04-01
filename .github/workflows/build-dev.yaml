@@ -231,7 +231,7 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               workflow_id: 'manual-approval.yaml',
-              ref: 'main',
+              ref: 'mr/CICD_Approval_Test',
               inputs: {
                 environment: '${{ github.event.inputs.aws_env }}',
                 microservice: '${{ github.event.inputs.microservice }}',
