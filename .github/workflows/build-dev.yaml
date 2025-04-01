@@ -50,7 +50,7 @@ jobs:
     permissions: write-all
     outputs:
       version_tag: ${{ steps.semver.outputs.version_tag }}
-      ecr_uri: ${{ steps.set_aws_ecr.outputs.ecr_uri }}
+      ecr_uri: ${{ steps.set_aws_ecr.outputs.ECR_URI }}
       aws_env: ${{ github.event.inputs.aws_env }}
       microservice: ${{ github.event.inputs.microservice }}
       run_id: ${{ steps.get_run_id.outputs.run_id }}
@@ -176,35 +176,35 @@ jobs:
           # ods.extractor
           if [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}"
           # ods.manager
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_DEV }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_QA }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_UAT }}"
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_OUTPUT
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_PROD }}"
           else
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
@@ -281,7 +281,7 @@ jobs:
       - name: Log in to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
-            | docker login --username AWS --password-stdin ${{  needs.build_and_test.outputs.ecr_uri  }}
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
       # # 3) Push Docker Image to ECR
       # - name: Push Docker Image to ECR
