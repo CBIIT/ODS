@@ -28,8 +28,8 @@ on:
           - prod
         default: sandbox
 
-      dotnet_version_tag:
-        description: 'Dotnet version_tag'
+      dotnet_version:
+        description: 'Dotnet version'
         required: true
         default: '9.0.x'
 
@@ -59,7 +59,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version_tag: ${{ github.event.inputs.dotnet_version_tag }}
+          dotnet-version: ${{ github.event.inputs.dotnet_version }}
 
       # 4) Install Dependencies
       - name: Install dependencies
@@ -76,13 +76,13 @@ jobs:
         run: dotnet test --no-build --verbosity normal
         working-directory: ${{ env.WORK_DIR }}
 
-      # 7) Generate Semantic version_tag
-      - name: Generate Semantic version_tag
+      # 7) Generate Semantic version
+      - name: Generate Semantic version
         id: semver
-        uses: paulhatch/semantic-version_tag@v5.4.0
+        uses: paulhatch/semantic-version@v5.4.0
         with:
           tag_prefix: "v"
-          version_tag_format: "${major}.${minor}.${patch}"
+          version_format: "${major}.${minor}.${patch}"
           major_pattern: "/^feat!:|^BREAKING CHANGE:/"
           minor_pattern: "/^feat:|^minor:/"
           major_regexp_flags: "i"
@@ -92,15 +92,15 @@ jobs:
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.semver.outputs.version_tag_tag  }}
-          tag_name: ${{ steps.semver.outputs.version_tag_tag  }}
+          name: ${{ steps.semver.outputs.version_tag  }}
+          tag_name: ${{ steps.semver.outputs.version_tag  }}
           fail_on_unmatched_files: true
           generate_release_notes: true          
 
       # Setup git config
       - name: Setup git config
         env:
-          NEXT_TAG: ${{ steps.semver.outputs.version_tag_tag  }}
+          NEXT_TAG: ${{ steps.semver.outputs.version_tag  }}
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
@@ -275,7 +275,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const version_tag = '${{ steps.semver.outputs.version_tag }}';
+            const version = '${{ steps.semver.outputs.version_tag }}';
             const env = '${{ github.event.inputs.aws_env }}';
             const microservice = '${{ github.event.inputs.microservice }}';
             const ecr = '${{ env.ECR_URI }}';
@@ -284,11 +284,11 @@ jobs:
             core.summary
               .addHeading("ODS Deployment Summary")
               .addTable([
-                [{ data: "version_tag", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
-                [version_tag, env, microservice, repoName],
+                [{ data: "Version", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
+                [version, env, microservice, repoName],
               ])
               .addHeading("Image Details")
-              .addRaw(`ECR URI: ${ecr}:${version_tag}`)
+              .addRaw(`ECR URI: ${ecr}:${version}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
 
