@@ -271,9 +271,20 @@ jobs:
               .addRaw(`ECR URI: ${ecr}:${version}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
+      - name: Save Logs to artifact
+        run: |
+          mkdir -p logs
+          ./run-build_and_test.sh 2>&1 | tee logs/build_and_test.log
+      
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: build_and_test-logs
+          path: logs/build_and_test.log
 
+          
   push_to_ecr:
-    name: Push to ECR
+    name: PushToECR
     runs-on: ubuntu-latest
     needs: build_and_test
     if: ${{ needs.build_and_test.result == 'success' }}
@@ -383,8 +394,18 @@ jobs:
       #     docker push ${{ env.ECR_URI }}:${{ needs.build_and_test.outputs.version_tag }}
       #     docker push ${{ env.ECR_URI }}:${{ needs.build_and_test.outputs.aws_env }}-latest
 
+      - name: Save Logs to artifact
+        run: |
+          mkdir -p logs
+          ./run-PushToECR.sh 2>&1 | tee logs/PushToECR.log
+      
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: PushToECR-logs
+          path: logs/PushToECR.log
   deploy:
-    name: Deploy
+    name: deploy
     runs-on: ubuntu-latest
     needs: push_to_ecr
     permissions: write-all
@@ -501,6 +522,17 @@ jobs:
               .addRaw(`ECR URI: ${ecr}:${version}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
+
+      - name: Save Logs to artifact
+        run: |
+          mkdir -p logs
+          ./run-deploy.sh 2>&1 | tee logs/deploy.log
+      
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v3
+        with:
+          name: deploy-logs
+          path: logs/deploy.log
 
       # 7) Trigger Approval Workflow for Next Environment
       - name: Trigger Approval for Next Environment
