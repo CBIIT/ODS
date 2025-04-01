@@ -194,9 +194,12 @@ jobs:
 
       # 11) Build Docker Image
       - name: Build Docker Image
+        working-directory: ${{ env.WORK_DIR }}
         run: |
           # Navigate to the root of the project
           ls -l
+          cd ..
+          pwd
           # Build the Docker image with environment-specific tag
           docker build \
             -f ./${{ github.event.inputs.microservice }}/Dockerfile \
