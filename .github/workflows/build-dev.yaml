@@ -187,9 +187,7 @@ jobs:
       - name: Build Docker Image
         run: |
           # Navigate to the root of the project
-          pwd
-          cd ..
-          pwd
+          ls -l
           # Build the Docker image with environment-specific tag
           docker build \
             -f ./${{ github.event.inputs.microservice }}/Dockerfile \
