@@ -34,16 +34,6 @@ on:
         default: '9.0.x'
 
 jobs:
-  print_inputs:
-    runs-on: ubuntu-latest
-    permissions: write-all
-    steps:
-      - name: Print Inputs
-        run: |
-          echo "Microservice: ${{ github.event.inputs.microservice }}"
-          echo "AWS Environment: ${{ github.event.inputs.aws_env }}"
-          echo "Dotnet Version: ${{ github.event.inputs.dotnet_version }}"
-
   build_and_test:
     name: Build and Test
     runs-on: ubuntu-latest
@@ -55,6 +45,13 @@ jobs:
       microservice: ${{ github.event.inputs.microservice }}
       run_id: ${{ steps.get_run_id.outputs.run_id }}
     steps:
+      # 0) Print Inputs
+      - name: Print Inputs
+        run: |
+          echo "Microservice: ${{ github.event.inputs.microservice }}"
+          echo "AWS Environment: ${{ github.event.inputs.aws_env }}"
+          echo "Dotnet Version: ${{ github.event.inputs.dotnet_version }}"
+
       # 1) Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
@@ -250,7 +247,31 @@ jobs:
         with:
           name: docker-image-${{ steps.semver.outputs.version_tag }}
           path: ods_${{ steps.semver.outputs.version_tag }}.tar.gz
-                      
+
+      # 17) Create GitHub Summary
+      - name: Add Summary
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ steps.semver.outputs.version_tag }}';
+            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            const env = '${{ github.event.inputs.aws_env }}';
+            const microservice = '${{ github.event.inputs.microservice }}';
+            const ecr = '${{ env.ECR_URI }}';
+            const repoName = 'theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}';
+
+            core.summary
+              .addHeading("ODS Build and Test Summary")
+              .addTable([
+                [{ data: "Version", header: true },{ data: "Run ID", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
+                [version, runId, env, microservice, repoName],
+              ])
+              .addHeading("Image Details")
+              .addRaw(`ECR URI: ${ecr}:${version}`)
+              .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
+              .write()
+
   push_to_ecr:
     name: Push to ECR
     runs-on: ubuntu-latest
@@ -270,8 +291,13 @@ jobs:
         if: ${{ always() }} #  For debugging, remove later
         run: |
           echo "DEBUG: AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}"
-
-     # 8) Map environment => AWS role & ECR repo + Lambda function name
+          echo "DEBUG: version_tag: ${{ needs.build_and_test.outputs.version_tag }}"
+          echo "DEBUG: ecr_uri: ${{ needs.build_and_test.outputs.ecr_uri }}"
+          echo "DEBUG: aws_env: ${{ needs.build_and_test.outputs.aws_env }}"
+          echo "DEBUG: microservice: ${{ needs.build_and_test.outputs.microservice }}"
+          echo "DEBUG: run_id: ${{ needs.build_and_test.outputs.run_id }}"
+    
+      # 1) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
         run: |
@@ -351,7 +377,7 @@ jobs:
           aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
             | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
-      # # 3) Push Docker Image to ECR
+      # 4) Push Docker Image to ECR
       # - name: Push Docker Image to ECR
       #   run: |
       #     docker push ${{ env.ECR_URI }}:${{ needs.build_and_test.outputs.version_tag }}
@@ -465,7 +491,6 @@ jobs:
             const microservice = '${{ needs.push_to_ecr.outputs.microservice }}';
             const ecr = '${{ env.ECR_URI }}';
             const repoName = 'theradex-${{ needs.push_to_ecr.outputs.aws_env }}-${{ needs.push_to_ecr.outputs.microservice }}';
-
             core.summary
               .addHeading("ODS Deployment Summary")
               .addTable([
@@ -496,3 +521,4 @@ jobs:
                 run_id: runId
               }
             });
+            
