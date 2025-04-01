@@ -37,8 +37,6 @@ jobs:
   print_inputs:
     runs-on: ubuntu-latest
     permissions: write-all
-    environment:
-      name: dev        
     steps:
       - name: Print Inputs
         run: |
@@ -46,12 +44,16 @@ jobs:
           echo "AWS Environment: ${{ github.event.inputs.aws_env }}"
           echo "Dotnet Version: ${{ github.event.inputs.dotnet_version }}"
 
-  build_test_and_deploy:
-    name: Build, Test, Push to ECR 
+  build_and_test:
+    name: Build and Test
     runs-on: ubuntu-latest
     permissions: write-all
-    environment:
-      name: dev    
+    outputs:
+      version_tag: ${{ steps.semver.outputs.version_tag }}
+      ecr_uri: ${{ steps.set_aws_ecr.outputs.ecr_uri }}
+      aws_env: ${{ github.event.inputs.aws_env }}
+      microservice: ${{ github.event.inputs.microservice }}
+      run_id: ${{ steps.get_run_id.outputs.run_id }}
     steps:
       # 1) Checkout code
       - name: Checkout code
@@ -107,7 +109,7 @@ jobs:
           name: ${{ steps.semver.outputs.version_tag  }}
           tag_name: ${{ steps.semver.outputs.version_tag  }}
           fail_on_unmatched_files: true
-          generate_release_notes: true          
+          generate_release_notes: true
 
       # Setup git config
       - name: Setup git config
@@ -124,13 +126,13 @@ jobs:
           script: |
             const runId = context.runId;
             core.setOutput('run_id', runId);
-    
+
       # Print Version and Run ID in comments
       - name: Print Version and Run ID
         run: |
           echo "Version: ${{ steps.semver.outputs.version_tag  }}"
           echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
-          
+
       # 8) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
@@ -158,10 +160,10 @@ jobs:
           ########################################
           # Extract the microservice name without ods. prefix for ECS service name
           MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
-          
+
           # Set repository name for informational purposes
           echo "REPO_NAME=theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
-          
+
           # ods.extractor
           if [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_ENV
@@ -173,7 +175,7 @@ jobs:
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
-          
+
           # ods.manager
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
@@ -185,7 +187,9 @@ jobs:
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
-        
+
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+
           else
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
@@ -201,7 +205,7 @@ jobs:
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
           role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
           role-duration-seconds: 3600
-          
+
       # 10) Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
@@ -221,102 +225,84 @@ jobs:
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
 
-      # 11.5) Approval Step
-      - name: Approval
-        uses: actions/github-script@v6
-        id: approval
+  push_to_ecr:
+    name: Push to ECR
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    permissions: write-all
+    environment:
+      name: dev
+    outputs: #  Crucially, add outputs here!
+      version_tag: ${{ needs.build_and_test.outputs.version_tag }}
+      ecr_uri: ${{ needs.build_and_test.outputs.ecr_uri }}
+      aws_env: ${{ needs.build_and_test.outputs.aws_env }}
+      microservice: ${{ needs.build_and_test.outputs.microservice }}
+      run_id: ${{ needs.build_and_test.outputs.run_id }}
+    steps:
+      # 1) Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          script: |
-            const result = await github.rest.actions.createWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'manual-approval.yaml',
-              ref: 'mr/CICD_Approval_Test',
-              inputs: {
-                environment: '${{ github.event.inputs.aws_env }}',
-                microservice: '${{ github.event.inputs.microservice }}',
-                version: '${{ steps.semver.outputs.version_tag }}'
-              }
-            });
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }} #  Use a secret or output from previous job
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
 
-            console.log("Approval workflow dispatch result:", result); // More descriptive log
-            if (result.status !== 204) { // Correct status code check
-              core.setFailed(`Failed to trigger approval workflow: ${result.status}`);
-            }
- 
-      - name: Wait for Approval
-        uses: actions/github-script@v6
-        if: ${{ always() && needs.build_test_and_deploy.result == 'success' }}
-        id: wait_approval
-        with:
-          script: |
-            const approvalRunId = (await github.rest.actions.listWorkflowRunsForWorkflowDispatch({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'manual-approval.yaml',
-            })).data.workflow_runs[0].id; // Get the latest run ID
+      # 2) Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
+            | docker login --username AWS --password-stdin ${{ needs.build_and_test.outputs.ecr_uri }}
 
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-
-            let approvalState = 'pending';
-            let approvalConclusion = null;
-            let timeout = 3600; // Timeout in seconds (1 hour)
-            let elapsed = 0;
-            const interval = 10; // Check interval in seconds
-
-            while (approvalState !== 'completed' && elapsed < timeout) {
-              const approvalCheck = await github.rest.actions.getWorkflowRun({
-                owner: owner,
-                repo: repo,
-                run_id: approvalRunId,
-              });
-
-              approvalState = approvalCheck.data.status;
-              approvalConclusion = approvalCheck.data.conclusion;
-
-              if (approvalState !== 'completed') {
-                console.log(`Approval status: ${approvalState}, waiting... (${elapsed}s elapsed)`);
-                await new Promise(resolve => setTimeout(resolve, interval * 1000));
-                elapsed += interval;
-              }
-            }
-
-            if (approvalConclusion !== 'success') {
-              core.setFailed(`Approval failed or timed out with conclusion: ${approvalConclusion} after ${elapsed} seconds.`);
-            } else {
-              console.log("Approval successful, proceeding with deployment...");
-            }
-                          
-      # # 12) Push Docker Image to ECR
+      # # 3) Push Docker Image to ECR
       # - name: Push Docker Image to ECR
       #   run: |
-      #     docker push ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }}
-      #     docker push ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest
+      #     docker push ${{ needs.build_and_test.outputs.ecr_uri }}:${{ needs.build_and_test.outputs.version_tag }}
+      #     docker push ${{ needs.build_and_test.outputs.ecr_uri }}:${{ needs.build_and_test.outputs.aws_env }}-latest
 
-      # 13) Log deployment information
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    needs: push_to_ecr
+    permissions: write-all
+    steps:
+      # 1) Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }} #  Use a secret or output from previous job
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
+
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
+            | docker login --username AWS --password-stdin ${{ needs.push_to_ecr.outputs.ecr_uri }}
+
+      # 2) Log deployment information
       - name: Log Deployment Info
         run: |
-          echo "✅ Successfully pushed image to ECR: ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest"
+          echo "✅ Successfully pushed image to ECR: ${{ needs.push_to_ecr.outputs.ecr_uri }}:${{ needs.push_to_ecr.outputs.aws_env }}-latest"
           echo "✅ EventBridge will automatically deploy the new image"
-          
-          # Add information about the environment and microservice
-          echo "Environment: ${{ github.event.inputs.aws_env }}"
-          echo "Microservice: ${{ github.event.inputs.microservice }}"
-          echo "ECR URI: ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }}"
 
-      # 14) Create GitHub Summary
+          # Add information about the environment and microservice
+          echo "Environment: ${{ needs.push_to_ecr.outputs.aws_env }}"
+          echo "Microservice: ${{ needs.push_to_ecr.outputs.microservice }}"
+          echo "ECR URI: ${{ needs.push_to_ecr.outputs.ecr_uri }}:${{ needs.push_to_ecr.outputs.version_tag }}"
+
+      # 3) Create GitHub Summary
       - name: Add Summary
         if: ${{ always() }}
         uses: actions/github-script@v6
         with:
           script: |
-            const version = '${{ steps.semver.outputs.version_tag }}';
-            const runId = '${{ steps.get_run_id.outputs.run_id }}';            
-            const env = '${{ github.event.inputs.aws_env }}';
-            const microservice = '${{ github.event.inputs.microservice }}';
-            const ecr = '${{ env.ECR_URI }}';
-            const repoName = '${{ env.REPO_NAME }}';
+            const version = '${{ needs.push_to_ecr.outputs.version_tag }}';
+            const runId = '${{ needs.push_to_ecr.outputs.run_id }}';
+            const env = '${{ needs.push_to_ecr.outputs.aws_env }}';
+            const microservice = '${{ needs.push_to_ecr.outputs.microservice }}';
+            const ecr = '${{ needs.push_to_ecr.outputs.ecr_uri }}';
+            const repoName = 'theradex-${{ needs.push_to_ecr.outputs.aws_env }}-${{ needs.push_to_ecr.outputs.microservice }}';
 
             core.summary
               .addHeading("ODS Deployment Summary")
@@ -325,22 +311,9 @@ jobs:
                 [version, runId, env, microservice, repoName],
               ])
               .addHeading("Image Details")
-              .addRaw(`ECR URI: ${ecr}:${version}`)
-              .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
+              .addRaw(`ECR URI: <span class="math-inline">\{ecr\}\:</span>{version}`)
+              .addRaw(`Latest Tag: <span class="math-inline">\{ecr\}\:</span>{env}-latest`)
               .write()
-
-      # 15) (Optional) Save Docker Image as Artifact
-      - name: Save Docker Image as Artifact
-        run: |
-          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} as an artifact"
-          docker save ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} | gzip > ods_${{ steps.semver.outputs.version_tag }}.tar.gz
-
-      # 16) (Optional) Upload Docker Image Artifact
-      - name: Upload Docker Image Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-${{ steps.semver.outputs.version_tag }}
-          path: ods_${{ steps.semver.outputs.version_tag }}.tar.gz
 
       # Trigger Approval Workflow for Next Environment
       - name: Trigger Approval for Next Environment
@@ -348,8 +321,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const version = '${{ steps.semver.outputs.version_tag  }}';
-            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            const version = '${{ needs.push_to_ecr.outputs.version_tag   }}';
+            const runId = '${{ needs.push_to_ecr.outputs.run_id }}';
             console.log(`Version: ${version}, Run ID: ${runId}`);
             github.rest.actions.createWorkflowDispatch({
               owner: context.repo.owner,
