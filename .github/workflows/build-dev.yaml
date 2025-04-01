@@ -199,14 +199,14 @@ jobs:
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
           fi
-      
+
           echo "DEBUG:  ECR_URI = $ECR_URI"
           echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
+          echo "ecr_uri=$ECR_URI" >> $GITHUB_ENV
       
           echo "DEBUG:  Finished set_aws_ecr step"
           echo "DEBUG: Inside set_aws_ecr, ECR_URI=$ECR_URI"  #  Crucial debug line
-          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
-      
+
           echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."     
 
       # 9) Configure AWS Credentials
