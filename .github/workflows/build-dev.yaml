@@ -523,16 +523,21 @@ jobs:
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
 
-      - name: Save Logs to artifact
+      - name: Get run ID
+        id: get_run_id
+        run: echo "RUN_ID=${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
+      - name: Get log URL
+        id: get_log_url
         run: |
-          mkdir -p logs
-          ./run-deploy.sh 2>&1 | tee logs/deploy.log
-      
-      - name: Upload deploy logs
+          LOG_URL=$(gh api "/repos/${GITHUB_REPOSITORY}/actions/runs/${{ steps.get_run_id.outputs.RUN_ID }}/logs" | jq -r '.url')
+          echo "LOG_URL=$LOG_URL" >> $GITHUB_OUTPUT
+      - name: Download log
+        run: curl -L "${{ steps.get_log_url.outputs.LOG_URL }}" --output workflow_logs.zip
+      - name: save log artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deploy-logs
-          path: logs/deploy.log
+          name: workflow_logs
+          path: workflow_logs.zip
 
       # 7) Trigger Approval Workflow for Next Environment
       - name: Trigger Approval for Next Environment
