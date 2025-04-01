@@ -102,7 +102,7 @@ jobs:
           major_regexp_flags: "i"
           minor_regexp_flags: "i"
 
-      # Create release
+      # 8) Create release
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
@@ -111,7 +111,7 @@ jobs:
           fail_on_unmatched_files: true
           generate_release_notes: true
 
-      # Setup git config
+      # 9) Setup git config
       - name: Setup git config
         env:
           NEXT_TAG: ${{ steps.semver.outputs.version_tag  }}
@@ -127,13 +127,13 @@ jobs:
             const runId = context.runId;
             core.setOutput('run_id', runId);
 
-      # Print Version and Run ID in comments
+      # 10) Print Version and Run ID in comments
       - name: Print Version and Run ID
         run: |
           echo "Version: ${{ steps.semver.outputs.version_tag  }}"
           echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
 
-     # 8) Map environment => AWS role & ECR repo + Lambda function name
+     # 11) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
         run: |
@@ -210,7 +210,7 @@ jobs:
 
           echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."
 
-      # 9) Configure AWS Credentials
+      # 12) Configure AWS Credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -219,13 +219,13 @@ jobs:
           role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
           role-duration-seconds: 3600
 
-      # 10) Log in to Amazon ECR
+      # 13) Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
             | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
-      # 11) Build Docker Image
+      # 14) Build Docker Image
       - name: Build Docker Image
         working-directory: ${{ env.WORK_DIR }}
         run: |
@@ -237,12 +237,20 @@ jobs:
             -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
-            
-      - name:  Debug - Print ECR URI
-        if: ${{ always() }} #  Ensure this runs even if previous steps fail
+
+      # 15) (Optional) Save Docker Image as Artifact
+      - name: Save Docker Image as Artifact
         run: |
-          echo "DEBUG: ECR_URI from build_and_test: ${{ steps.set_aws_ecr.outputs.ecr_uri }}"
-            
+          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag  }} as an artifact"
+          docker save ${{ env.ECR_URI }}:${{steps.semver.outputs.version_tag}} | gzip > ods_${{ steps.semver.outputs.version_tag }}.tar.gz
+
+      # 16) (Optional) Upload Docker Image Artifact
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ steps.semver.outputs.version_tag }}
+          path: ods_${{ steps.semver.outputs.version_tag }}.tar.gz
+                      
   push_to_ecr:
     name: Push to ECR
     runs-on: ubuntu-latest
@@ -468,19 +476,6 @@ jobs:
               .addRaw(`ECR URI: ${ecr}:${version}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
-
-      # 5) (Optional) Save Docker Image as Artifact
-      - name: Save Docker Image as Artifact
-        run: |
-          echo "Saving Docker image ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag  }} as an artifact"
-          docker save ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag }} | gzip > ods_${{ needs.push_to_ecr.outputs.version_tag }}.tar.gz
-
-      # 6) (Optional) Upload Docker Image Artifact
-      - name: Upload Docker Image Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-image-${{ needs.push_to_ecr.outputs.version_tag }}
-          path: ods_${{ needs.push_to_ecr.outputs.version_tag }}.tar.gz
 
       # 7) Trigger Approval Workflow for Next Environment
       - name: Trigger Approval for Next Environment
