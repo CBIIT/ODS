@@ -224,11 +224,17 @@ jobs:
             -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
-
+            
+      - name:  Debug - Print ECR URI
+        if: ${{ always() }} #  Ensure this runs even if previous steps fail
+        run: |
+          echo "DEBUG: ECR_URI from build_and_test: ${{ steps.set_aws_ecr.outputs.ecr_uri }}"
+            
   push_to_ecr:
     name: Push to ECR
     runs-on: ubuntu-latest
     needs: build_and_test
+    if: ${{ needs.build_and_test.result == 'success' }}
     permissions: write-all
     environment:
       name: dev
@@ -239,6 +245,11 @@ jobs:
       microservice: ${{ needs.build_and_test.outputs.microservice }}
       run_id: ${{ needs.build_and_test.outputs.run_id }}
     steps:
+      - name: Debug - Print AWS Region
+        if: ${{ always() }} #  For debugging, remove later
+        run: |
+          echo "DEBUG: AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}"
+       
       # 1) Configure AWS Credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
