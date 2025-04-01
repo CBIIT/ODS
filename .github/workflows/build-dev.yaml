@@ -34,6 +34,47 @@ on:
         default: '9.0.x'
 
 jobs:
+  job1:
+    runs-on: ubuntu-latest
+    outputs:
+      message: ${{ steps.set_message.outputs.my_message }}
+      number: ${{ steps.set_number.outputs.my_number }}
+    steps:
+      - name: Set a Message
+        id: set_message
+        run: echo "::set-output name=my_message::Hello from job1!"
+
+      - name: Set a Number
+        id: set_number
+        run: echo "::set-output name=my_number::42"
+
+      - name: Print Job 1 Outputs
+        run: |
+          echo "Job 1 Message: ${{ steps.set_message.outputs.my_message }}"
+          echo "Job 1 Number: ${{ steps.set_number.outputs.my_number }}"
+
+  job2:
+    needs: job1
+    runs-on: ubuntu-latest
+    steps:
+      - name: Use Values from Job 1
+        run: |
+          echo "Job 1's Message: ${{ needs.job1.outputs.message }}"
+          echo "Job 1's Number: ${{ needs.job1.outputs.number }}"
+          echo "Job 1's Number + 10: $(( ${{ needs.job1.outputs.number }} + 10 ))"  #  Example of using the number
+
+  job3:
+    needs: [job1, job2] #  job3 depends on both job1 and job2
+    runs-on: ubuntu-latest
+    if: ${{ needs.job2.result == 'success' }} #  Only run if job2 was successful
+    steps:
+      - name: Use Values from Job 1 and Job 2
+        run: |
+          echo "Job 1 Message in Job 3: ${{ needs.job1.outputs.message }}"
+          echo "Job 1 Number in Job 3: ${{ needs.job1.outputs.number }}"
+          echo "Job 2 Result: ${{ needs.job2.result }}" # Accessing job status
+          echo "This job only runs if job2 was successful"
+          
   print_inputs:
     runs-on: ubuntu-latest
     permissions: write-all
@@ -141,19 +182,14 @@ jobs:
           # (A) Choose AWS Role based on aws_env
           ########################################
           if [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from sandbox secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_SANDBOX }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from dev secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from qa secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from uat secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from prod secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_PROD }}" >> $GITHUB_ENV
           else
             echo "❌ ERROR: Unrecognized aws_env '${{ github.event.inputs.aws_env }}'"
