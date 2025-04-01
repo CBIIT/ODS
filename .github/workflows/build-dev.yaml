@@ -133,81 +133,87 @@ jobs:
           echo "Version: ${{ steps.semver.outputs.version_tag  }}"
           echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
 
-      # 8) Map environment => AWS role & ECR repo + Lambda function name
+     # 8) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
         run: |
-          echo "DEBUG: Starting set_aws_ecr step"
-          echo "DEBUG: github.event.inputs.aws_env = ${{ github.event.inputs.aws_env }}"
-          echo "DEBUG: github.event.inputs.microservice = ${{ github.event.inputs.microservice }}"
-      
-          # Extract the microservice name without ods. prefix
-          MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
-          echo "DEBUG: MICROSERVICE_NAME = $MICROSERVICE_NAME"
-    
-          #########################################
+          ########################################
           # (A) Choose AWS Role based on aws_env
-          #########################################
+          ########################################
           if [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from sandbox secret"
+            echo "DEBUG:  Setting AWS_ROLE_ARN from sandbox secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_SANDBOX }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "DEBUG:  Setting AWS_ROLE_ARN from dev secret"
+            echo "DEBUG:  Setting AWS_ROLE_ARN from dev secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "DEBUG:  Setting AWS_ROLE_ARN from qa secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "DEBUG:  Setting AWS_ROLE_ARN from uat secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "DEBUG:  Setting AWS_ROLE_ARN from prod secret"          
             echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_PROD }}" >> $GITHUB_ENV
           else
             echo "❌ ERROR: Unrecognized aws_env '${{ github.event.inputs.aws_env }}'"
             exit 1
           fi
-      
+
+          ########################################
+          # (B) Set ECR_URI and LAMBDA_FUNCTION based on microservice + environment
+          ########################################
+          # Extract the microservice name without ods. prefix for ECS service name
+          MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
+          echo "DEBUG: Starting set_aws_ecr step"
+          echo "DEBUG: github.event.inputs.aws_env = ${{ github.event.inputs.aws_env }}"
+          echo "DEBUG: github.event.inputs.microservice = ${{ github.event.inputs.microservice }}"
+          echo "DEBUG: MICROSERVICE_NAME = $MICROSERVICE_NAME"
+
           # Set repository name for informational purposes
           echo "REPO_NAME=theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
-      
-          # Initialize ECR_URI to an empty string (for safety)
-          ECR_URI=""
-      
+          
           # ods.extractor
           if [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "DEBUG:  Setting ECR_URI from ods.extractor sandbox secret"
-            ECR_URI="${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "DEBUG:  Setting ECR_URI from ods.extractor dev secret"
-            ECR_URI="${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_OUTPUT
           # ods.manager
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_MANAGER_DEV }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_MANAGER_QA }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_MANAGER_UAT }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_OUTPUT
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            ECR_URI="${{ secrets.ECR_URI_ODS_MANAGER_PROD }}"
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_OUTPUT
           else
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
           fi
 
-          echo "DEBUG:  ECR_URI = $ECR_URI"
-          echo "ecr_uri=$ECR_URI" >> $GITHUB_OUTPUT
-          echo "ecr_uri=$ECR_URI" >> $GITHUB_ENV
-      
           echo "DEBUG:  Finished set_aws_ecr step"
           echo "DEBUG: Inside set_aws_ecr, ECR_URI=$ECR_URI"  #  Crucial debug line
 
-          echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."     
+          echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."
 
       # 9) Configure AWS Credentials
       - name: Configure AWS Credentials
