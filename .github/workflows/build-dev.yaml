@@ -1,5 +1,9 @@
 name: ODS CI/CD Pipeline
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -10,8 +14,6 @@ on:
         options:
           - ods.manager
           - ods.extractor
-          - ods.data-access
-          - rave-medidata
         default: ods.extractor
 
       aws_env:
@@ -26,17 +28,18 @@ on:
           - prod
         default: sandbox
 
-      dotnet_version:
-        description: 'Dotnet version'
+      dotnet_version_tag:
+        description: 'Dotnet version_tag'
         required: true
         default: '9.0.x'
 
 jobs:
   build_test_and_deploy:
-    name: Build, Test, Push to ECR & Update Lambda
+    name: Build, Test, Push to ECR 
     runs-on: ubuntu-latest
     permissions: write-all
-    
+    environment:
+      name: dev    
     steps:
       # 1) Checkout code
       - name: Checkout code
@@ -56,7 +59,7 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: ${{ github.event.inputs.dotnet_version }}
+          dotnet-version_tag: ${{ github.event.inputs.dotnet_version_tag }}
 
       # 4) Install Dependencies
       - name: Install dependencies
@@ -73,18 +76,36 @@ jobs:
         run: dotnet test --no-build --verbosity normal
         working-directory: ${{ env.WORK_DIR }}
 
-      # 7) Generate Semantic Version
-      - name: Generate Semantic Version
+      # 7) Generate Semantic version_tag
+      - name: Generate Semantic version_tag
         id: semver
-        uses: paulhatch/semantic-version@v5.4.0
+        uses: paulhatch/semantic-version_tag@v5.4.0
         with:
           tag_prefix: "v"
-          version_format: "${major}.${minor}.${patch}"
+          version_tag_format: "${major}.${minor}.${patch}"
           major_pattern: "/^feat!:|^BREAKING CHANGE:/"
           minor_pattern: "/^feat:|^minor:/"
           major_regexp_flags: "i"
           minor_regexp_flags: "i"
 
+      # Create release
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.semver.outputs.version_tag_tag  }}
+          tag_name: ${{ steps.semver.outputs.version_tag_tag  }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true          
+
+      # Setup git config
+      - name: Setup git config
+        env:
+          NEXT_TAG: ${{ steps.semver.outputs.version_tag_tag  }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          
       # 8) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
@@ -139,31 +160,7 @@ jobs:
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
-          
-          # ods.data-access
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_SANDBOX }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_DEV }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_PROD }}" >> $GITHUB_ENV
-          
-          # rave-medidata
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_SANDBOX }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_DEV }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_PROD }}" >> $GITHUB_ENV
-          
+        
           else
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
@@ -177,7 +174,9 @@ jobs:
         with:
           role-to-assume: ${{ env.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
-
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
+          
       # 10) Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
@@ -192,15 +191,72 @@ jobs:
           # Build the Docker image with environment-specific tag
           docker build \
             -f ./${{ github.event.inputs.microservice }}/Dockerfile \
-            -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} \
+            -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} \
             -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
             .
 
-      # 12) Push Docker Image to ECR
-      - name: Push Docker Image to ECR
-        run: |
-          docker push ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }}
-          docker push ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest
+      # 11.5) Approval Step
+      - name: Approval
+        uses: actions/github-script@v6
+        id: approval
+        with:
+          script: |
+            const result = await github.rest.actions.createWorkflowRun({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'manual-approval.yaml',
+              ref: 'main',
+              inputs: {
+                environment: '${{ github.event.inputs.aws_env }}',
+                microservice: '${{ github.event.inputs.microservice }}',
+                version: '${{ steps.semver.outputs.version_tag }}'
+              }
+            });
+
+            console.log(result);
+            if (result.status !== 201) {
+              core.setFailed(`Failed to trigger approval workflow: ${result.status}`);
+            }
+  
+      - name: Wait for Approval
+        uses: actions/github-script@v6
+        if: ${{ always() && needs.build_test_and_deploy.result == 'success' }}
+        with:
+          script: |
+            const approvalRunId = ${{ fromJson(steps.approval.result).data.workflow_runs[0].id }};
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            let approvalState = 'pending';
+            let approvalConclusion = null;
+
+            while (approvalState !== 'completed') {
+              const approvalCheck = await github.rest.actions.getWorkflowRun({
+                owner: owner,
+                repo: repo,
+                run_id: approvalRunId,
+              });
+
+              approvalState = approvalCheck.data.status;
+              approvalConclusion = approvalCheck.data.conclusion;
+
+              if (approvalState !== 'completed') {
+                console.log(`Approval status: ${approvalState}, waiting...`);
+                await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
+              }
+            }
+
+            if (approvalConclusion !== 'success') {
+              core.setFailed(`Approval failed with conclusion: ${approvalConclusion}`);
+            } else {
+                console.log("Approval successful, proceeding with deployment...");
+            }
+                          
+      # # 12) Push Docker Image to ECR
+      # - name: Push Docker Image to ECR
+      #   run: |
+      #     docker push ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }}
+      #     docker push ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest
 
       # 13) Log deployment information
       - name: Log Deployment Info
@@ -211,7 +267,7 @@ jobs:
           # Add information about the environment and microservice
           echo "Environment: ${{ github.event.inputs.aws_env }}"
           echo "Microservice: ${{ github.event.inputs.microservice }}"
-          echo "ECR URI: ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }}"
+          echo "ECR URI: ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }}"
 
       # 14) Create GitHub Summary
       - name: Add Summary
@@ -219,7 +275,7 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const version = '${{ steps.semver.outputs.version }}';
+            const version_tag = '${{ steps.semver.outputs.version_tag }}';
             const env = '${{ github.event.inputs.aws_env }}';
             const microservice = '${{ github.event.inputs.microservice }}';
             const ecr = '${{ env.ECR_URI }}';
@@ -228,23 +284,43 @@ jobs:
             core.summary
               .addHeading("ODS Deployment Summary")
               .addTable([
-                [{ data: "Version", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
-                [version, env, microservice, repoName],
+                [{ data: "version_tag", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
+                [version_tag, env, microservice, repoName],
               ])
               .addHeading("Image Details")
-              .addRaw(`ECR URI: ${ecr}:${version}`)
+              .addRaw(`ECR URI: ${ecr}:${version_tag}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
 
       # 15) (Optional) Save Docker Image as Artifact
       - name: Save Docker Image as Artifact
         run: |
-          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} as an artifact"
-          docker save ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} | gzip > ods_${{ steps.semver.outputs.version }}.tar.gz
+          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} as an artifact"
+          docker save ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} | gzip > ods_${{ steps.semver.outputs.version_tag }}.tar.gz
 
       # 16) (Optional) Upload Docker Image Artifact
       - name: Upload Docker Image Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ steps.semver.outputs.version }}
-          path: ods_${{ steps.semver.outputs.version }}.tar.gz
+          name: docker-image-${{ steps.semver.outputs.version_tag }}
+          path: ods_${{ steps.semver.outputs.version_tag }}.tar.gz
+
+      # Trigger Approval Workflow for Next Environment
+      - name: Trigger Approval for Next Environment
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ steps.semver.outputs.version_tag  }}';
+            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            console.log(`Version: ${version}, Run ID: ${runId}`);
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'qa-push.yaml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                run_id: runId
+              }
+            });
