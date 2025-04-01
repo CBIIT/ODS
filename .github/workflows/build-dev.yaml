@@ -277,12 +277,12 @@ jobs:
           ./run-build_and_test.sh 2>&1 | tee logs/build_and_test.log
       
       - name: Upload deploy logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: build_and_test-logs
           path: logs/build_and_test.log
 
-          
+
   push_to_ecr:
     name: PushToECR
     runs-on: ubuntu-latest
@@ -400,7 +400,7 @@ jobs:
           ./run-PushToECR.sh 2>&1 | tee logs/PushToECR.log
       
       - name: Upload deploy logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: PushToECR-logs
           path: logs/PushToECR.log
@@ -529,7 +529,7 @@ jobs:
           ./run-deploy.sh 2>&1 | tee logs/deploy.log
       
       - name: Upload deploy logs
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: deploy-logs
           path: logs/deploy.log
