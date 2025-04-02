@@ -1,5 +1,9 @@
 name: ODS CI/CD Pipeline
 
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: false
+
 on:
   workflow_dispatch:
     inputs:
@@ -10,8 +14,6 @@ on:
         options:
           - ods.manager
           - ods.extractor
-          - ods.data-access
-          - rave-medidata
         default: ods.extractor
 
       aws_env:
@@ -32,12 +34,24 @@ on:
         default: '9.0.x'
 
 jobs:
-  build_test_and_deploy:
-    name: Build, Test, Push to ECR & Update Lambda
+  build_and_test:
+    name: Build and Test
     runs-on: ubuntu-latest
     permissions: write-all
-    
+    outputs:
+      version_tag: ${{ steps.semver.outputs.version_tag }}
+      ecr_uri: ${{ steps.set_aws_ecr.outputs.ECR_URI }}
+      aws_env: ${{ github.event.inputs.aws_env }}
+      microservice: ${{ github.event.inputs.microservice }}
+      run_id: ${{ steps.get_run_id.outputs.run_id }}
     steps:
+      # 0) Print Inputs
+      - name: Print Inputs
+        run: |
+          echo "Microservice: ${{ github.event.inputs.microservice }}"
+          echo "AWS Environment: ${{ github.event.inputs.aws_env }}"
+          echo "Dotnet Version: ${{ github.event.inputs.dotnet_version }}"
+
       # 1) Checkout code
       - name: Checkout code
         uses: actions/checkout@v4
@@ -73,8 +87,8 @@ jobs:
         run: dotnet test --no-build --verbosity normal
         working-directory: ${{ env.WORK_DIR }}
 
-      # 7) Generate Semantic Version
-      - name: Generate Semantic Version
+      # 7) Generate Semantic version
+      - name: Generate Semantic version
         id: semver
         uses: paulhatch/semantic-version@v5.4.0
         with:
@@ -85,7 +99,38 @@ jobs:
           major_regexp_flags: "i"
           minor_regexp_flags: "i"
 
-      # 8) Map environment => AWS role & ECR repo + Lambda function name
+      # 8) Create release
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ steps.semver.outputs.version_tag  }}
+          tag_name: ${{ steps.semver.outputs.version_tag  }}
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+      # 9) Setup git config
+      - name: Setup git config
+        env:
+          NEXT_TAG: ${{ steps.semver.outputs.version_tag  }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+      - name: Capture Workflow Run ID
+        id: get_run_id
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const runId = context.runId;
+            core.setOutput('run_id', runId);
+
+      # 10) Print Version and Run ID in comments
+      - name: Print Version and Run ID
+        run: |
+          echo "Version: ${{ steps.semver.outputs.version_tag  }}"
+          echo "Run ID: ${{ steps.get_run_id.outputs.run_id }}"
+
+     # 11) Map environment => AWS role & ECR repo + Lambda function name
       - name: Determine AWS Role, ECR_URI, & Lambda
         id: set_aws_ecr
         run: |
@@ -112,7 +157,189 @@ jobs:
           ########################################
           # Extract the microservice name without ods. prefix for ECS service name
           MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
+          echo "DEBUG: Starting set_aws_ecr step"
+          echo "DEBUG: github.event.inputs.aws_env = ${{ github.event.inputs.aws_env }}"
+          echo "DEBUG: github.event.inputs.microservice = ${{ github.event.inputs.microservice }}"
+          echo "DEBUG: MICROSERVICE_NAME = $MICROSERVICE_NAME"
+
+          # Set repository name for informational purposes
+          echo "REPO_NAME=theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
           
+          # ods.extractor
+          if [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}"
+          # ods.manager
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_DEV }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_QA }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_UAT }}"
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
+            echo "::set-output name=ECR_URI::${{ secrets.ECR_URI_ODS_MANAGER_PROD }}"
+          else
+            echo "❌ ERROR: Unrecognized microservice+env pair"
+            exit 1
+          fi
+
+          echo "DEBUG:  Finished set_aws_ecr step"
+          echo "DEBUG: Inside set_aws_ecr, ECR_URI=$ECR_URI"  #  Crucial debug line
+
+          echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."
+
+      # 12) Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
+
+      # 13) Log in to Amazon ECR
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+
+      # 14) Build Docker Image
+      - name: Build Docker Image
+        working-directory: ${{ env.WORK_DIR }}
+        run: |
+          # Navigate to the root of the project
+          cd ..
+          # Build the Docker image with environment-specific tag
+          docker build \
+            -f ./${{ github.event.inputs.microservice }}/Dockerfile \
+            -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag }} \
+            -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
+            .
+
+      # 15) (Optional) Save Docker Image as Artifact
+      - name: Save Docker Image as Artifact
+        run: |
+          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version_tag  }} as an artifact"
+          docker save ${{ env.ECR_URI }}:${{steps.semver.outputs.version_tag}} | gzip > ods_${{ steps.semver.outputs.version_tag }}.tar.gz
+
+      # 16) (Optional) Upload Docker Image Artifact
+      - name: Upload Docker Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-image-${{ steps.semver.outputs.version_tag }}
+          path: ods_${{ steps.semver.outputs.version_tag }}.tar.gz
+
+      # 17) Create GitHub Summary
+      - name: Add Summary
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ steps.semver.outputs.version_tag }}';
+            const runId = '${{ steps.get_run_id.outputs.run_id }}';
+            const env = '${{ github.event.inputs.aws_env }}';
+            const microservice = '${{ github.event.inputs.microservice }}';
+            const ecr = '${{ env.ECR_URI }}';
+            const repoName = 'theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}';
+
+            core.summary
+              .addHeading("ODS Build and Test Summary")
+              .addTable([
+                [{ data: "Version", header: true },{ data: "Run ID", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
+                [version, runId, env, microservice, repoName],
+              ])
+              .addHeading("Image Details")
+              .addRaw(`ECR URI: ${ecr}:${version}`)
+              .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
+              .write()
+      - name: Save Logs to artifact
+        run: |
+          mkdir -p logs
+          ./run-build_and_test.sh 2>&1 | tee logs/build_and_test.log
+      
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: build_and_test-logs
+          path: logs/build_and_test.log
+
+
+  push_to_ecr:
+    name: PushToECR
+    runs-on: ubuntu-latest
+    needs: build_and_test
+    if: ${{ needs.build_and_test.result == 'success' }}
+    permissions: write-all
+    environment:
+      name: dev
+    outputs: #  Crucially, add outputs here!
+      version_tag: ${{ needs.build_and_test.outputs.version_tag }}
+      ecr_uri: ${{ needs.build_and_test.outputs.ecr_uri }}
+      aws_env: ${{ needs.build_and_test.outputs.aws_env }}
+      microservice: ${{ needs.build_and_test.outputs.microservice }}
+      run_id: ${{ needs.build_and_test.outputs.run_id }}
+    steps:
+      - name: Debug - Print AWS Region
+        if: ${{ always() }} #  For debugging, remove later
+        run: |
+          echo "DEBUG: AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}"
+          echo "DEBUG: version_tag: ${{ needs.build_and_test.outputs.version_tag }}"
+          echo "DEBUG: ecr_uri: ${{ needs.build_and_test.outputs.ecr_uri }}"
+          echo "DEBUG: aws_env: ${{ needs.build_and_test.outputs.aws_env }}"
+          echo "DEBUG: microservice: ${{ needs.build_and_test.outputs.microservice }}"
+          echo "DEBUG: run_id: ${{ needs.build_and_test.outputs.run_id }}"
+    
+      # 1) Map environment => AWS role & ECR repo + Lambda function name
+      - name: Determine AWS Role, ECR_URI, & Lambda
+        id: set_aws_ecr
+        run: |
+          ########################################
+          # (A) Choose AWS Role based on aws_env
+          ########################################
+          if [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_PROD }}" >> $GITHUB_ENV
+          else
+            echo "❌ ERROR: Unrecognized aws_env '${{ github.event.inputs.aws_env }}'"
+            exit 1
+          fi
+
+          ########################################
+          # (B) Set ECR_URI and LAMBDA_FUNCTION based on microservice + environment
+          ########################################
+          # Extract the microservice name without ods. prefix for ECS service name
+          MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
+          echo "DEBUG: Starting set_aws_ecr step"
+          echo "DEBUG: github.event.inputs.aws_env = ${{ github.event.inputs.aws_env }}"
+          echo "DEBUG: github.event.inputs.microservice = ${{ github.event.inputs.microservice }}"
+          echo "DEBUG: MICROSERVICE_NAME = $MICROSERVICE_NAME"
+
           # Set repository name for informational purposes
           echo "REPO_NAME=theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
           
@@ -127,7 +354,6 @@ jobs:
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
-          
           # ods.manager
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
@@ -139,112 +365,197 @@ jobs:
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
           elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
             echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
-          
-          # ods.data-access
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_SANDBOX }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_DEV }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "ods.data-access" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_ODS_DATA_ACCESS_PROD }}" >> $GITHUB_ENV
-          
-          # rave-medidata
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_SANDBOX }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_DEV }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_QA }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_UAT }}" >> $GITHUB_ENV
-          elif [ "${{ github.event.inputs.microservice }}" = "rave-medidata" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
-            echo "ECR_URI=${{ secrets.ECR_URI_RAVE_MEDIDATA_PROD }}" >> $GITHUB_ENV
-          
           else
             echo "❌ ERROR: Unrecognized microservice+env pair"
             exit 1
           fi
-
+          echo "DEBUG:  Finished set_aws_ecr step"
+          echo "DEBUG: Inside set_aws_ecr, ECR_URI=$ECR_URI"  #  Crucial debug line
           echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."
 
-      # 9) Configure AWS Credentials
+      # 2) Configure AWS Credentials
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }} #  Use a secret or output from previous job
           aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
 
-      # 10) Log in to Amazon ECR
+      # 3) Log in to Amazon ECR
       - name: Log in to Amazon ECR
         run: |
           aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
             | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
 
-      # 11) Build Docker Image
-      - name: Build Docker Image
-        run: |
-          # Navigate to the root of the project
-          cd ..
-          # Build the Docker image with environment-specific tag
-          docker build \
-            -f ./${{ github.event.inputs.microservice }}/Dockerfile \
-            -t ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} \
-            -t ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest \
-            .
+      # 4) Push Docker Image to ECR
+      # - name: Push Docker Image to ECR
+      #   run: |
+      #     docker push ${{ env.ECR_URI }}:${{ needs.build_and_test.outputs.version_tag }}
+      #     docker push ${{ env.ECR_URI }}:${{ needs.build_and_test.outputs.aws_env }}-latest
 
-      # 12) Push Docker Image to ECR
-      - name: Push Docker Image to ECR
+      - name: Save Logs to artifact
         run: |
-          docker push ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }}
-          docker push ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest
+          mkdir -p logs
+          ./run-PushToECR.sh 2>&1 | tee logs/PushToECR.log
+      
+      - name: Upload deploy logs
+        uses: actions/upload-artifact@v4
+        with:
+          name: PushToECR-logs
+          path: logs/PushToECR.log
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    needs: push_to_ecr
+    permissions: write-all
+    steps:
+      # 1) Configure AWS Credentials
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_DEV }} #  Use a secret or output from previous job
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+          role-session-name: ${{ github.event.repository.name }}-${{ github.run_id }}
+          role-duration-seconds: 3600
 
-      # 13) Log deployment information
+      # 2) Map environment => AWS role & ECR repo + Lambda function name
+      - name: Determine AWS Role, ECR_URI, & Lambda
+        id: set_aws_ecr
+        run: |
+          ########################################
+          # (A) Choose AWS Role based on aws_env
+          ########################################
+          if [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "AWS_ROLE_ARN=${{ secrets.AWS_ROLE_ARN_PROD }}" >> $GITHUB_ENV
+          else
+            echo "❌ ERROR: Unrecognized aws_env '${{ github.event.inputs.aws_env }}'"
+            exit 1
+          fi
+
+          ########################################
+          # (B) Set ECR_URI and LAMBDA_FUNCTION based on microservice + environment
+          ########################################
+          # Extract the microservice name without ods. prefix for ECS service name
+          MICROSERVICE_NAME=$(echo "${{ github.event.inputs.microservice }}" | sed 's/ods\.//')
+          echo "DEBUG: Starting set_aws_ecr step"
+          echo "DEBUG: github.event.inputs.aws_env = ${{ github.event.inputs.aws_env }}"
+          echo "DEBUG: github.event.inputs.microservice = ${{ github.event.inputs.microservice }}"
+          echo "DEBUG: MICROSERVICE_NAME = $MICROSERVICE_NAME"
+
+          # Set repository name for informational purposes
+          echo "REPO_NAME=theradex-${{ github.event.inputs.aws_env }}-${{ github.event.inputs.microservice }}" >> $GITHUB_ENV
+          
+          # ods.extractor
+          if [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.extractor" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_EXTRACTOR_PROD }}" >> $GITHUB_ENV
+          # ods.manager
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "sandbox" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_SANDBOX }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "dev" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_DEV }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "qa" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_QA }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "uat" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_UAT }}" >> $GITHUB_ENV
+          elif [ "${{ github.event.inputs.microservice }}" = "ods.manager" ] && [ "${{ github.event.inputs.aws_env }}" = "prod" ]; then
+            echo "ECR_URI=${{ secrets.ECR_URI_ODS_MANAGER_PROD }}" >> $GITHUB_ENV
+          else
+            echo "❌ ERROR: Unrecognized microservice+env pair"
+            exit 1
+          fi
+          echo "DEBUG:  Finished set_aws_ecr step"
+          echo "DEBUG: Inside set_aws_ecr, ECR_URI=$ECR_URI"  #  Crucial debug line
+          echo "✅ Mapped AWS_ROLE_ARN, ECR_URI, and LAMBDA_FUNCTION."
+
+      - name: Log in to Amazon ECR
+        run: |
+          aws ecr get-login-password --region ${{ secrets.AWS_DEFAULT_REGION }} \
+            | docker login --username AWS --password-stdin ${{ env.ECR_URI }}
+
+      # 3) Log deployment information
       - name: Log Deployment Info
         run: |
-          echo "✅ Successfully pushed image to ECR: ${{ env.ECR_URI }}:${{ github.event.inputs.aws_env }}-latest"
+          echo "✅ Successfully pushed image to ECR: ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.aws_env }}-latest"
           echo "✅ EventBridge will automatically deploy the new image"
-          
-          # Add information about the environment and microservice
-          echo "Environment: ${{ github.event.inputs.aws_env }}"
-          echo "Microservice: ${{ github.event.inputs.microservice }}"
-          echo "ECR URI: ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }}"
 
-      # 14) Create GitHub Summary
+          # Add information about the environment and microservice
+          echo "Environment: ${{ needs.push_to_ecr.outputs.aws_env }}"
+          echo "Microservice: ${{ needs.push_to_ecr.outputs.microservice }}"
+          echo "ECR URI: ${{ env.ECR_URI }}:${{ needs.push_to_ecr.outputs.version_tag }}"
+
+      # 4) Create GitHub Summary
       - name: Add Summary
         if: ${{ always() }}
         uses: actions/github-script@v6
         with:
           script: |
-            const version = '${{ steps.semver.outputs.version }}';
-            const env = '${{ github.event.inputs.aws_env }}';
-            const microservice = '${{ github.event.inputs.microservice }}';
+            const version = '${{ needs.push_to_ecr.outputs.version_tag }}';
+            const runId = '${{ needs.push_to_ecr.outputs.run_id }}';
+            const env = '${{ needs.push_to_ecr.outputs.aws_env }}';
+            const microservice = '${{ needs.push_to_ecr.outputs.microservice }}';
             const ecr = '${{ env.ECR_URI }}';
-            const repoName = '${{ env.REPO_NAME }}';
-
+            const repoName = 'theradex-${{ needs.push_to_ecr.outputs.aws_env }}-${{ needs.push_to_ecr.outputs.microservice }}';
             core.summary
               .addHeading("ODS Deployment Summary")
               .addTable([
-                [{ data: "Version", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
-                [version, env, microservice, repoName],
+                [{ data: "Version", header: true },{ data: "Run ID", header: true }, { data: "Environment", header: true }, { data: "Microservice", header: true }, { data: "Repository", header: true }],
+                [version, runId, env, microservice, repoName],
               ])
               .addHeading("Image Details")
               .addRaw(`ECR URI: ${ecr}:${version}`)
               .addRaw(`Latest Tag: ${ecr}:${env}-latest`)
               .write()
 
-      # 15) (Optional) Save Docker Image as Artifact
-      - name: Save Docker Image as Artifact
-        run: |
-          echo "Saving Docker image ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} as an artifact"
-          docker save ${{ env.ECR_URI }}:${{ steps.semver.outputs.version }} | gzip > ods_${{ steps.semver.outputs.version }}.tar.gz
+      - name: Get run ID
+        id: get_run_id
+        run: echo "RUN_ID=${GITHUB_RUN_ID}" >> $GITHUB_OUTPUT
 
-      # 16) (Optional) Upload Docker Image Artifact
-      - name: Upload Docker Image Artifact
+      - name: Get Workflow Run Jobs
+        id: get_jobs_data
+        run: |
+          curl -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/${{ github.repository }}/actions/runs/${{ steps.get_run_id.outputs.RUN_ID }}/jobs > jobs.json
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: docker-image-${{ steps.semver.outputs.version }}
-          path: ods_${{ steps.semver.outputs.version }}.tar.gz
+          name: workflow-jobs-data
+          path: jobs.json
+
+      # 7) Trigger Approval Workflow for Next Environment
+      - name: Trigger Approval for Next Environment
+        if: ${{ always() }}
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const version = '${{ needs.push_to_ecr.outputs.version_tag   }}';
+            const runId = '${{ needs.push_to_ecr.outputs.run_id }}';
+            console.log(`Version: ${version}, Run ID: ${runId}`);
+            github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'qa-push.yaml',
+              ref: 'main',
+              inputs: {
+                version: version,
+                run_id: runId
+              }
+            });
+            
